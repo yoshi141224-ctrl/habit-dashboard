@@ -1,0 +1,327 @@
+/* ============================================================
+   MobileView — phone-frame wrapper + mobile layout overrides
+   ============================================================ */
+
+/* Outer centering wrapper */
+.mv-outer {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 24px 16px;
+  min-height: 80vh;
+}
+
+/* Phone frame */
+.mv-phone {
+  width: 390px;
+  flex-shrink: 0;
+  border: 12px solid #1a1a1a;
+  border-radius: 44px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: #f5f2ed;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.25);
+  max-height: 780px;
+}
+
+/* Inner screen (flex column, clips overflow) */
+.mv-screen {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* ── Top status bar ── */
+.mv-topbar {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: #1a1a1a;
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.mv-topbar-time {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  min-width: 40px;
+}
+
+.mv-topbar-title {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* ── Scrollable content area ── */
+.mv-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #f5f2ed;
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Bottom navigation bar ── */
+.mv-bottom-nav {
+  height: 60px;
+  background: white;
+  border-top: 1px solid #e8e4de;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  flex-shrink: 0;
+}
+
+.mv-nav-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #9a938c;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 6px 0;
+  transition: color 0.12s;
+  font-family: inherit;
+  letter-spacing: 0.03em;
+}
+
+.mv-nav-btn:active {
+  opacity: 0.7;
+}
+
+.mv-nav-btn--active {
+  color: #2d2926;
+}
+
+.mv-nav-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* ============================================================
+   Score bar (Home tab)
+   ============================================================ */
+.mv-score-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: white;
+  border-radius: 10px;
+  padding: 10px 12px;
+  flex-shrink: 0;
+}
+
+.mv-score-pct {
+  font-size: 20px;
+  font-weight: 800;
+  color: #2d2926;
+  min-width: 48px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mv-score-track {
+  flex: 1;
+  height: 6px;
+  background: #f0ece6;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.mv-score-fill {
+  height: 100%;
+  background: #2d2926;
+  border-radius: 3px;
+  transition: width 0.4s;
+}
+
+.mv-score-label {
+  font-size: 11px;
+  color: #9a938c;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+/* ============================================================
+   Inline Timer (Timer tab)
+   ============================================================ */
+.mv-timer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: white;
+  border-radius: 14px;
+}
+
+.mv-timer-label {
+  font-size: 11px;
+  color: #9a938c;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0;
+  text-align: center;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mv-timer-total {
+  font-size: 12px;
+  color: #9a938c;
+  margin: 0;
+}
+
+.mv-timer-total strong {
+  color: #2d2926;
+}
+
+.mv-timer-btns {
+  display: flex;
+  gap: 10px;
+}
+
+.mv-timer-btn {
+  min-height: 48px;
+  min-width: 90px;
+  border: none;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.12s, transform 0.1s;
+}
+
+.mv-timer-btn:active {
+  opacity: 0.75;
+  transform: scale(0.97);
+}
+
+.mv-timer-btn--start {
+  background: #2d2926;
+  color: white;
+}
+
+.mv-timer-btn--pause {
+  background: #e8e4de;
+  color: #2d2926;
+}
+
+.mv-timer-btn--reset {
+  background: #f5f2ed;
+  color: #9a938c;
+  border: 1.5px solid #e8e4de;
+}
+
+.mv-timer-notes {
+  width: 100%;
+  box-sizing: border-box;
+  resize: none;
+  border: 1.5px solid #e8e4de;
+  border-radius: 8px;
+  padding: 8px;
+  font-family: inherit;
+  font-size: 12px;
+  background: #faf8f5;
+  color: #2d2926;
+  outline: none;
+  line-height: 1.5;
+}
+
+.mv-timer-notes:focus {
+  border-color: #2d2926;
+}
+
+.mv-timer-sessions {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mv-timer-sessions-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: #9a938c;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 2px 0;
+}
+
+.mv-timer-session-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #6e6762;
+}
+
+.mv-timer-session-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.mv-timer-session-time {
+  flex: 1;
+}
+
+.mv-timer-session-dur {
+  font-weight: 700;
+  color: #2d2926;
+}
+
+/* ============================================================
+   Overrides for existing components inside .mv-phone
+   ============================================================ */
+
+/* Charts: remove outer margin so they fit the phone width */
+.mv-phone .sbc-card,
+.mv-phone .bc-card {
+  margin: 0;
+}
+
+/* HabitDiary grid: 2 columns on phone */
+.mv-phone .hd-grid {
+  grid-template-columns: 1fr 1fr;
+}
+
+/* CompletedTasksLog: remove card shadow for cleaner look */
+.mv-phone .ctl-card {
+  box-shadow: none;
+}
+
+/* General card spacing reductions inside phone */
+.mv-phone .card {
+  border-radius: 12px;
+}
+
+/* Ensure cards don't overflow horizontally */
+.mv-phone .hd-card,
+.mv-phone .tl-card,
+.mv-phone .sbc-card,
+.mv-phone .bc-card,
+.mv-phone .ctl-card {
+  min-width: 0;
+  word-break: break-word;
+}

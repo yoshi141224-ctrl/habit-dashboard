@@ -253,3 +253,28 @@
 .hd-context-item:hover { background: #faf8f5; }
 .hd-context-delete { color: #c0392b; }
 .hd-context-delete:hover { background: #fff5f5; }
+
+/* ── Inline edit inputs ── */
+.hd-edit-input {
+  width: 100%;
+  border: none;
+  border-bottom: 1.5px solid #c49476;
+  background: transparent;
+  outline: none;
+  padding: 1px 2px;
+  border-radius: 0;
+  font-family: inherit;
+  color: #1e1b17;
+}
+
+.hd-edit-name {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.hd-edit-detail {
+  font-size: 10px;
+  color: #9a938c;
+  line-height: 1.2;
+}

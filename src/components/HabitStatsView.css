@@ -1,0 +1,171 @@
+.hsv-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ── Header ── */
+.hsv-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.hsv-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.hsv-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e1b17;
+}
+
+/* ── Chart Type Toggle ── */
+.hsv-type-toggle {
+  display: flex;
+  gap: 6px;
+}
+.hsv-type-btn {
+  background: none;
+  border: 1.5px solid #e8e4de;
+  cursor: pointer;
+  font-size: 12px;
+  color: #7a7470;
+  padding: 4px 14px;
+  border-radius: 20px;
+  font-weight: 500;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  font-family: inherit;
+}
+.hsv-type-btn:hover {
+  background: #f5f1ea;
+  border-color: #9a938c;
+  color: #2d2926;
+}
+.hsv-type-btn--active {
+  background: #2d2926;
+  border-color: #2d2926;
+  color: #fff;
+}
+.hsv-type-btn--active:hover {
+  background: #2d2926;
+  border-color: #2d2926;
+  color: #fff;
+}
+
+/* ── Period Tabs ── */
+.hsv-tabs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.hsv-tab {
+  background: none;
+  border: 1.5px solid #e8e4de;
+  cursor: pointer;
+  font-size: 11.5px;
+  color: #7a7470;
+  padding: 4px 12px;
+  border-radius: 7px;
+  font-weight: 500;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  font-family: inherit;
+}
+.hsv-tab:hover {
+  background: #f5f1ea;
+  border-color: #c49476;
+  color: #c49476;
+}
+.hsv-tab--active {
+  background: #2d2926;
+  border-color: #2d2926;
+  color: #fff;
+}
+.hsv-tab--active:hover {
+  background: #2d2926;
+  border-color: #2d2926;
+  color: #fff;
+}
+
+/* ── Chart area ── */
+.hsv-chart-wrap {
+  width: 100%;
+  overflow: hidden;
+}
+
+/* ── Footer ── */
+.hsv-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0 2px;
+  border-top: 1.5px solid #f0ece6;
+}
+.hsv-avg-label {
+  font-size: 11px;
+  color: #9a938c;
+  font-weight: 500;
+}
+.hsv-avg-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: #2d2926;
+}
+
+/* ── Today / 1日 display ── */
+.hsv-today-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 0 8px;
+}
+.hsv-big-pct {
+  font-size: 56px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.hsv-today-label {
+  font-size: 12px;
+  color: #9a938c;
+  font-weight: 500;
+}
+.hsv-habit-list {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 12px 0 4px;
+  border-top: 1.5px solid #f0ece6;
+}
+.hsv-habit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+.hsv-habit-row--done {
+  opacity: 1;
+}
+.hsv-habit-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.hsv-habit-name {
+  font-size: 13px;
+  color: #2d2926;
+  font-weight: 500;
+  flex: 1;
+}
+.hsv-habit-check {
+  font-size: 12px;
+  color: #939b7e;
+  font-weight: 700;
+}

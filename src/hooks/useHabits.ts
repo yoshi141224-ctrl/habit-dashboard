@@ -108,6 +108,12 @@ export function useHabits() {
     });
   }
 
+  function editHabit(habitId: string, name: string, detail: string) {
+    setHabits(prev => prev.map(h =>
+      h.id === habitId ? { ...h, name: name.trim() || h.name, detail: detail.trim() } : h
+    ));
+  }
+
   function navigateDate(delta: -1 | 1) {
     setSelectedDate(prev => {
       const d = new Date(prev);
@@ -126,6 +132,7 @@ export function useHabits() {
     toggleHabit,
     addHabit,
     removeHabit,
+    editHabit,
     setSelectedDate,
     navigateDate,
   };

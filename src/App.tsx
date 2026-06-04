@@ -10,7 +10,11 @@ import BarChart from './components/BarChart';
 import HabitDiary from './components/HabitDiary';
 import ToDoList from './components/ToDoList';
 import FocusTimer from './components/FocusTimer';
-import type { StackedBarDatum } from './types';
+import CompletedTasksLog from './components/CompletedTasksLog';
+import TaskCalendar from './components/TaskCalendar';
+import HabitStatsView from './components/HabitStatsView';
+import MobileView from './components/MobileView';
+import type { StackedBarDatum, BarChartDatum } from './types';
 import { ITEM_COLORS } from './types';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -24,13 +28,21 @@ export default function App() {
   // Selected item for the timer (habit or task)
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
 
-  // Assign colors: habits get indices 0..n-1, tasks get indices n..n+m-1
+  // Assign colors: habits → indices 0..n-1, active tasks → n..n+m-1, completed tasks → same slot by ID
   const itemColorMap = useMemo(() => {
     const map: Record<string, string> = {};
     habits.habits.forEach((h, i) => { map[h.id] = ITEM_COLORS[i % ITEM_COLORS.length]; });
     tasks.tasks.forEach((t, i) => { map[t.id] = ITEM_COLORS[(habits.habits.length + i) % ITEM_COLORS.length]; });
+    // Completed tasks: assign colors not already in map (stable by order they appear in completedTasks)
+    let colorOffset = habits.habits.length + tasks.tasks.length;
+    tasks.completedTasks.forEach(t => {
+      if (!map[t.id]) {
+        map[t.id] = ITEM_COLORS[colorOffset % ITEM_COLORS.length];
+        colorOffset++;
+      }
+    });
     return map;
-  }, [habits.habits, tasks.tasks]);
+  }, [habits.habits, tasks.tasks, tasks.completedTasks]);
 
   // onComplete: saves time to timeLogs
   const handleTimerComplete = useCallback((itemId: string | null, seconds: number) => {
@@ -49,8 +61,10 @@ export default function App() {
     const habit = habits.habits.find(h => h.id === activeTimerItemId);
     if (habit) return habit.name;
     const task = tasks.tasks.find(t => t.id === activeTimerItemId);
-    return task?.title ?? null;
-  }, [activeTimerItemId, habits.habits, tasks.tasks]);
+    if (task) return task.title;
+    const done = tasks.completedTasks.find(t => t.id === activeTimerItemId);
+    return done?.title ?? null;
+  }, [activeTimerItemId, habits.habits, tasks.tasks, tasks.completedTasks]);
   const activeItemColor = activeTimerItemId ? (itemColorMap[activeTimerItemId] ?? null) : null;
 
   function selectItem(id: string) {
@@ -86,6 +100,41 @@ export default function App() {
       };
     });
   }, [timeLogs.timeLogs, habits.habits, tasks.tasks, itemColorMap]);
+
+  // ── 30-day stacked data (Month tab in Time Spent chart) ──
+  const monthStackedData: StackedBarDatum[] = useMemo(() => {
+    return Array.from({ length: 30 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (29 - i));
+      const key = d.toISOString().slice(0, 10);
+      const log = timeLogs.timeLogs[key] ?? {};
+      const segments = Object.entries(log).map(([itemId, seconds]) => {
+        const habit = habits.habits.find(h => h.id === itemId);
+        const task = tasks.tasks.find(t => t.id === itemId);
+        const name = habit?.name ?? task?.title ?? itemId;
+        return { itemId, name, color: itemColorMap[itemId] ?? '#ccc', seconds: seconds as number };
+      }).filter(s => s.seconds > 0).sort((a, b) => b.seconds - a.seconds);
+      const label = i === 0 || d.getDate() === 1
+        ? `${d.getMonth()+1}/${d.getDate()}`
+        : String(d.getDate());
+      return { label, segments, totalSeconds: segments.reduce((s, seg) => s + seg.seconds, 0) };
+    });
+  }, [timeLogs.timeLogs, habits.habits, tasks.tasks, itemColorMap]);
+
+  // ── 30-day habit completion data (Month tab in Habit Progress chart) ──
+  const monthHabitData: BarChartDatum[] = useMemo(() => {
+    return Array.from({ length: 30 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (29 - i));
+      const key = d.toISOString().slice(0, 10);
+      const done = (habits.completions[key] ?? []).length;
+      const total = habits.habits.length;
+      const label = i === 0 || d.getDate() === 1
+        ? `${d.getMonth()+1}/${d.getDate()}`
+        : String(d.getDate());
+      return { label, value: total > 0 ? Math.round((done / total) * 100) : 0 };
+    });
+  }, [habits.completions, habits.habits]);
 
   // Legend items for stacked chart
   const legendItems = useMemo(() => {
@@ -137,47 +186,118 @@ export default function App() {
       />
 
       <main className="center-area">
-        <div className="charts-row">
-          <StackedBarChart
-            weekData={stackedData}
+        {activeNav === 'calendar' && (
+          <TaskCalendar completedTasks={tasks.completedTasks} />
+        )}
+
+        {activeNav === 'completed' && (
+          <CompletedTasksLog
+            completedTasks={tasks.completedTasks}
+            onRemove={tasks.removeCompleted}
+            onClearAll={tasks.clearAllCompleted}
+          />
+        )}
+
+        {activeNav === 'stats' && (
+          <HabitStatsView
+            habits={habits.habits}
+            completions={habits.completions}
+            timeLogs={timeLogs.timeLogs}
+          />
+        )}
+
+        {activeNav === 'mobile' && (
+          <MobileView
+            habits={habits.habits}
+            completions={habits.completions}
+            selectedDate={habits.selectedDate}
+            completionRate={habits.completionRate}
+            todayLogs={todayLogs}
+            sessions={timer.todaySessions}
+            colorMap={itemColorMap}
+            activeItemId={timer.status === 'idle' ? selectedItemId : timer.currentItemId}
+            timerRunning={timer.status === 'running'}
+            onToggleHabit={habits.toggleHabit}
+            onNavigateDate={habits.navigateDate}
+            onAddHabit={habits.addHabit}
+            onRemoveHabit={habits.removeHabit}
+            onEditHabit={habits.editHabit}
+            onSelectItem={selectItem}
+            tasks={tasks.tasks}
+            completedTasks={tasks.completedTasks}
+            onToggleTask={tasks.toggleTask}
+            onStarTask={tasks.toggleStar}
+            onAddTask={tasks.addTask}
+            onRemoveTask={tasks.removeTask}
+            onRemoveCompleted={tasks.removeCompleted}
+            onClearCompleted={tasks.clearAllCompleted}
+            timerStatus={timer.status}
+            timerElapsed={timer.elapsed}
+            totalFocusSeconds={timer.totalFocusSeconds}
+            pendingNotes={timer.pendingNotes}
+            activeItemName={activeItemName}
+            activeItemColor={activeItemColor}
+            onTimerStart={handleStart}
+            onTimerPause={timer.pause}
+            onTimerReset={timer.reset}
+            onNotesChange={timer.setPendingNotes}
+            formatTime={timer.formatTime}
+            stackedData={stackedData}
+            monthStackedData={monthStackedData}
             legendItems={legendItems}
+            weeklyHabitData={habits.weeklyHabitData}
+            monthHabitData={monthHabitData}
           />
-          <BarChart
-            title="Habit Progress"
-            color="#c49476"
-            weekData={habits.weeklyHabitData}
-          />
-        </div>
+        )}
 
-        <HabitDiary
-          habits={habits.habits}
-          completions={habits.completions}
-          selectedDate={habits.selectedDate}
-          timeLogs={todayLogs}
-          sessions={timer.todaySessions}
-          activeItemId={timer.status === 'idle' ? selectedItemId : timer.currentItemId}
-          timerRunning={timer.status === 'running'}
-          colorMap={itemColorMap}
-          onToggle={habits.toggleHabit}
-          onNavigate={habits.navigateDate}
-          onSelect={selectItem}
-          onAddHabit={habits.addHabit}
-          onRemoveHabit={habits.removeHabit}
-        />
+        {activeNav !== 'calendar' && activeNav !== 'completed' && activeNav !== 'stats' && activeNav !== 'mobile' && (
+          <>
+            <div className="charts-row">
+              <StackedBarChart
+                weekData={stackedData}
+                monthData={monthStackedData}
+                legendItems={legendItems}
+              />
+              <BarChart
+                title="Habit Progress"
+                color="#c49476"
+                weekData={habits.weeklyHabitData}
+                monthData={monthHabitData}
+              />
+            </div>
 
-        <ToDoList
-          tasks={tasks.tasks}
-          timeLogs={todayLogs}
-          sessions={timer.todaySessions}
-          activeItemId={timer.status === 'idle' ? selectedItemId : timer.currentItemId}
-          timerRunning={timer.status === 'running'}
-          colorMap={itemColorMap}
-          onToggle={tasks.toggleTask}
-          onStar={tasks.toggleStar}
-          onSelect={selectItem}
-          onAdd={tasks.addTask}
-          onRemove={tasks.removeTask}
-        />
+            <HabitDiary
+              habits={habits.habits}
+              completions={habits.completions}
+              selectedDate={habits.selectedDate}
+              timeLogs={todayLogs}
+              sessions={timer.todaySessions}
+              activeItemId={timer.status === 'idle' ? selectedItemId : timer.currentItemId}
+              timerRunning={timer.status === 'running'}
+              colorMap={itemColorMap}
+              onToggle={habits.toggleHabit}
+              onNavigate={habits.navigateDate}
+              onSelect={selectItem}
+              onAddHabit={habits.addHabit}
+              onRemoveHabit={habits.removeHabit}
+              onEditHabit={habits.editHabit}
+            />
+
+            <ToDoList
+              tasks={tasks.tasks}
+              timeLogs={todayLogs}
+              sessions={timer.todaySessions}
+              activeItemId={timer.status === 'idle' ? selectedItemId : timer.currentItemId}
+              timerRunning={timer.status === 'running'}
+              colorMap={itemColorMap}
+              onToggle={tasks.toggleTask}
+              onStar={tasks.toggleStar}
+              onSelect={selectItem}
+              onAdd={tasks.addTask}
+              onRemove={tasks.removeTask}
+            />
+          </>
+        )}
       </main>
 
       <FocusTimer

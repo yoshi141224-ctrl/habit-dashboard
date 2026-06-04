@@ -70,8 +70,19 @@ export const TAG_COLORS: Record<string, string> = {
   Other: '#ece8e0',
 };
 
+export interface CompletedTask {
+  id: string;
+  title: string;
+  tag: string;
+  time: string;
+  starred: boolean;
+  completedAt: string; // ISO date string
+  createdAt: string;
+}
+
 export const LS_HABITS = 'hd_habits';
 export const LS_COMPLETIONS = 'hd_completions';
 export const LS_SESSIONS = 'hd_sessions';
 export const LS_TIMELOGS = 'hd_timelogs';
 export const LS_TASKS = 'hd_tasks';
+export const LS_COMPLETED_TASKS = 'hd_completed_tasks';

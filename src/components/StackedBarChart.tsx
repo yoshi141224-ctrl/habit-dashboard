@@ -2,31 +2,33 @@ import { useState } from 'react';
 import './StackedBarChart.css';
 import type { StackedBarDatum } from '../types';
 
-type Tab = 'Day' | '7 Days' | 'Week';
+type Tab = 'Day' | '7 Days' | 'Month';
 
 interface LegendItem { itemId: string; name: string; color: string; }
 
 interface Props {
   weekData: StackedBarDatum[];
+  monthData: StackedBarDatum[];
   legendItems: LegendItem[];
 }
 
 const MAX_SECONDS = 120 * 60; // 120 min = 100%
 
-export default function StackedBarChart({ weekData, legendItems }: Props) {
-  const [activeTab, setActiveTab] = useState<Tab>('Week');
+export default function StackedBarChart({ weekData, monthData, legendItems }: Props) {
+  const [activeTab, setActiveTab] = useState<Tab>('7 Days');
 
   const today = new Date();
   const dayIndex = today.getDay() === 0 ? 6 : today.getDay() - 1;
 
+  const baseData = activeTab === 'Month' ? monthData : weekData;
   const data = activeTab === 'Day'
     ? [weekData[dayIndex] ?? { label: 'Today', segments: [], totalSeconds: 0 }]
-    : weekData;
+    : baseData;
 
-  const weeklyAvgMin = Math.round(
-    weekData.reduce((s, d) => s + d.totalSeconds, 0) / 60 / Math.max(weekData.length, 1)
+  const periodAvgMin = Math.round(
+    baseData.reduce((s, d) => s + d.totalSeconds, 0) / 60 / Math.max(baseData.length, 1)
   );
-  const weeklyAvgPct = Math.min(Math.round((weeklyAvgMin / 120) * 100), 100);
+  const periodAvgPct = Math.min(Math.round((periodAvgMin / 120) * 100), 100);
 
   const svgW = 280;
   const svgH = 140;
@@ -37,9 +39,10 @@ export default function StackedBarChart({ weekData, legendItems }: Props) {
   const chartW = svgW - leftPad - rightPad;
   const chartH = svgH - topPad - bottomPad;
   const n = data.length;
-  const barW = (chartW / n) * 0.5;
   const slotW = chartW / n;
+  const barW = n <= 1 ? slotW * 0.4 : n <= 7 ? slotW * 0.55 : slotW * 0.72;
   const yLabels = [100, 75, 50, 25, 0];
+  const labelStep = n > 15 ? Math.ceil(n / 6) : 1;
 
   // Only legend items that appear in the data
   const activeIds = new Set(weekData.flatMap(d => d.segments.map(s => s.itemId)));
@@ -50,7 +53,7 @@ export default function StackedBarChart({ weekData, legendItems }: Props) {
       <div className="sbc-header">
         <span className="sbc-title">Time Spent</span>
         <div className="sbc-tabs">
-          {(['Day', '7 Days', 'Week'] as Tab[]).map(tab => (
+          {(['Day', '7 Days', 'Month'] as Tab[]).map(tab => (
             <button
               key={tab}
               className={`sbc-tab${activeTab === tab ? ' sbc-tab--active' : ''}`}
@@ -114,10 +117,12 @@ export default function StackedBarChart({ weekData, legendItems }: Props) {
                     {Math.round(d.totalSeconds / 60)}m
                   </text>
                 )}
-                {/* X-axis label */}
-                <text x={labelX} y={svgH - 4} textAnchor="middle" fontSize="8" fill="#9a938c">
-                  {d.label}
-                </text>
+                {/* X-axis label (skip for dense month view) */}
+                {i % labelStep === 0 && (
+                  <text x={labelX} y={svgH - 4} textAnchor="middle" fontSize="7.5" fill="#9a938c">
+                    {d.label}
+                  </text>
+                )}
               </g>
             );
           })}
@@ -137,8 +142,8 @@ export default function StackedBarChart({ weekData, legendItems }: Props) {
       )}
 
       <div className="sbc-footer">
-        <span className="sbc-avg-label">Weekly Average</span>
-        <span className="sbc-avg-value">{weeklyAvgPct}%</span>
+        <span className="sbc-avg-label">{activeTab === 'Month' ? 'Monthly Average' : 'Weekly Average'}</span>
+        <span className="sbc-avg-value">{periodAvgPct}%</span>
       </div>
     </div>
   );
