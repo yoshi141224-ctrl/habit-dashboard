@@ -1,0 +1,96 @@
+.sbc-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.sbc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.sbc-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #1e1b17;
+  white-space: nowrap;
+}
+
+.sbc-tabs {
+  display: flex;
+  gap: 2px;
+  background: #f5f2ee;
+  padding: 3px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.sbc-tab {
+  font-size: 10px;
+  padding: 3px 7px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: 4px;
+  color: #9a938c;
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.sbc-tab--active {
+  background: #2d2926;
+  color: #fff;
+}
+
+.sbc-chart-wrap {
+  width: 100%;
+}
+
+.sbc-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  padding: 2px 0;
+}
+
+.sbc-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sbc-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.sbc-legend-name {
+  font-size: 9.5px;
+  color: #9a938c;
+  white-space: nowrap;
+}
+
+.sbc-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 6px;
+  border-top: 1px solid #f0ece6;
+}
+
+.sbc-avg-label {
+  font-size: 11px;
+  color: #9a938c;
+}
+
+.sbc-avg-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e1b17;
+}

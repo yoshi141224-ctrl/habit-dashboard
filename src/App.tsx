@@ -1,0 +1,199 @@
+import { useState, useMemo, useCallback } from 'react';
+import './App.css';
+import { useHabits } from './hooks/useHabits';
+import { useTasks } from './hooks/useTasks';
+import { useTimeLogs } from './hooks/useTimeLogs';
+import { useTimer } from './hooks/useTimer';
+import LeftSidebar from './components/LeftSidebar';
+import StackedBarChart from './components/StackedBarChart';
+import BarChart from './components/BarChart';
+import HabitDiary from './components/HabitDiary';
+import ToDoList from './components/ToDoList';
+import FocusTimer from './components/FocusTimer';
+import type { StackedBarDatum } from './types';
+import { ITEM_COLORS } from './types';
+
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+export default function App() {
+  const habits = useHabits();
+  const tasks = useTasks();
+  const timeLogs = useTimeLogs();
+  const [activeNav, setActiveNav] = useState('home');
+
+  // Selected item for the timer (habit or task)
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+
+  // Assign colors: habits get indices 0..n-1, tasks get indices n..n+m-1
+  const itemColorMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    habits.habits.forEach((h, i) => { map[h.id] = ITEM_COLORS[i % ITEM_COLORS.length]; });
+    tasks.tasks.forEach((t, i) => { map[t.id] = ITEM_COLORS[(habits.habits.length + i) % ITEM_COLORS.length]; });
+    return map;
+  }, [habits.habits, tasks.tasks]);
+
+  // onComplete: saves time to timeLogs
+  const handleTimerComplete = useCallback((itemId: string | null, seconds: number) => {
+    if (itemId && seconds > 0) {
+      const today = new Date().toISOString().slice(0, 10);
+      timeLogs.addTime(today, itemId, seconds);
+    }
+  }, [timeLogs]);
+
+  const timer = useTimer({ onComplete: handleTimerComplete });
+
+  // Item name/color for FocusTimer display
+  const activeTimerItemId = timer.currentItemId ?? selectedItemId;
+  const activeItemName = useMemo(() => {
+    if (!activeTimerItemId) return null;
+    const habit = habits.habits.find(h => h.id === activeTimerItemId);
+    if (habit) return habit.name;
+    const task = tasks.tasks.find(t => t.id === activeTimerItemId);
+    return task?.title ?? null;
+  }, [activeTimerItemId, habits.habits, tasks.tasks]);
+  const activeItemColor = activeTimerItemId ? (itemColorMap[activeTimerItemId] ?? null) : null;
+
+  function selectItem(id: string) {
+    if (timer.status === 'running') return;
+    setSelectedItemId(prev => prev === id ? null : id);
+  }
+
+  function handleStart() {
+    timer.start(selectedItemId);
+  }
+
+  // Today's time logs
+  const today = new Date().toISOString().slice(0, 10);
+  const todayLogs = timeLogs.getTimeForDate(today);
+
+  // Stacked bar chart data (last 7 days)
+  const stackedData: StackedBarDatum[] = useMemo(() => {
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (6 - i));
+      const key = d.toISOString().slice(0, 10);
+      const log = timeLogs.timeLogs[key] ?? {};
+      const segments = Object.entries(log).map(([itemId, seconds]) => {
+        const habit = habits.habits.find(h => h.id === itemId);
+        const task = tasks.tasks.find(t => t.id === itemId);
+        const name = habit?.name ?? task?.title ?? itemId;
+        return { itemId, name, color: itemColorMap[itemId] ?? '#ccc', seconds: seconds as number };
+      }).filter(s => s.seconds > 0).sort((a, b) => b.seconds - a.seconds);
+      return {
+        label: DAY_LABELS[d.getDay()],
+        segments,
+        totalSeconds: segments.reduce((s, seg) => s + seg.seconds, 0),
+      };
+    });
+  }, [timeLogs.timeLogs, habits.habits, tasks.tasks, itemColorMap]);
+
+  // Legend items for stacked chart
+  const legendItems = useMemo(() => {
+    const seen = new Map<string, { name: string; color: string; total: number }>();
+    stackedData.forEach(d => {
+      d.segments.forEach(s => {
+        const prev = seen.get(s.itemId);
+        seen.set(s.itemId, {
+          name: s.name,
+          color: s.color,
+          total: (prev?.total ?? 0) + s.seconds,
+        });
+      });
+    });
+    return [...seen.entries()]
+      .sort((a, b) => b[1].total - a[1].total)
+      .slice(0, 8)
+      .map(([itemId, v]) => ({ itemId, name: v.name, color: v.color }));
+  }, [stackedData]);
+
+  // Donut chart segments (today's time)
+  const donutSegments = useMemo(() => {
+    return Object.entries(todayLogs)
+      .filter(([, s]) => s > 0)
+      .map(([itemId, seconds]) => {
+        const habit = habits.habits.find(h => h.id === itemId);
+        const task = tasks.tasks.find(t => t.id === itemId);
+        return {
+          itemId,
+          name: habit?.name ?? task?.title ?? itemId,
+          color: itemColorMap[itemId] ?? '#ccc',
+          seconds: seconds as number,
+        };
+      })
+      .sort((a, b) => b.seconds - a.seconds);
+  }, [todayLogs, habits.habits, tasks.tasks, itemColorMap]);
+
+  const completedCount = (habits.completions[habits.selectedDate] ?? []).length;
+
+  return (
+    <div className="app-layout">
+      <LeftSidebar
+        completionRate={habits.completionRate}
+        completedCount={completedCount}
+        totalCount={habits.habits.length}
+        donutSegments={donutSegments}
+        activeNav={activeNav}
+        onNavChange={setActiveNav}
+      />
+
+      <main className="center-area">
+        <div className="charts-row">
+          <StackedBarChart
+            weekData={stackedData}
+            legendItems={legendItems}
+          />
+          <BarChart
+            title="Habit Progress"
+            color="#c49476"
+            weekData={habits.weeklyHabitData}
+          />
+        </div>
+
+        <HabitDiary
+          habits={habits.habits}
+          completions={habits.completions}
+          selectedDate={habits.selectedDate}
+          timeLogs={todayLogs}
+          sessions={timer.todaySessions}
+          activeItemId={timer.status === 'idle' ? selectedItemId : timer.currentItemId}
+          timerRunning={timer.status === 'running'}
+          colorMap={itemColorMap}
+          onToggle={habits.toggleHabit}
+          onNavigate={habits.navigateDate}
+          onSelect={selectItem}
+          onAddHabit={habits.addHabit}
+          onRemoveHabit={habits.removeHabit}
+        />
+
+        <ToDoList
+          tasks={tasks.tasks}
+          timeLogs={todayLogs}
+          sessions={timer.todaySessions}
+          activeItemId={timer.status === 'idle' ? selectedItemId : timer.currentItemId}
+          timerRunning={timer.status === 'running'}
+          colorMap={itemColorMap}
+          onToggle={tasks.toggleTask}
+          onStar={tasks.toggleStar}
+          onSelect={selectItem}
+          onAdd={tasks.addTask}
+          onRemove={tasks.removeTask}
+        />
+      </main>
+
+      <FocusTimer
+        status={timer.status}
+        elapsed={timer.elapsed}
+        todaySessions={timer.todaySessions}
+        totalFocusSeconds={timer.totalFocusSeconds}
+        pendingNotes={timer.pendingNotes}
+        activeItemName={activeItemName}
+        activeItemColor={activeItemColor}
+        onStart={handleStart}
+        onPause={timer.pause}
+        onReset={timer.reset}
+        onNotesChange={timer.setPendingNotes}
+        formatTime={timer.formatTime}
+      />
+    </div>
+  );
+}

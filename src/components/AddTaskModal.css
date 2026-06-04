@@ -1,0 +1,115 @@
+.atm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(30,27,23,0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+  backdrop-filter: blur(2px);
+}
+
+.atm-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 24px;
+  width: 360px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.14);
+}
+
+.atm-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.atm-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e1b17;
+}
+
+.atm-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #9a938c;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s;
+}
+
+.atm-close:hover { color: #2d2926; }
+
+.atm-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.atm-row {
+  display: flex;
+  gap: 12px;
+}
+
+.atm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.atm-field--half {
+  flex: 1;
+}
+
+.atm-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b6560;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.atm-input, .atm-select {
+  padding: 9px 12px;
+  border: 1.5px solid #e8e4de;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #1e1b17;
+  background: #faf8f5;
+  outline: none;
+  transition: border-color 0.15s;
+  font-family: inherit;
+}
+
+.atm-input:focus, .atm-select:focus {
+  border-color: #2d2926;
+  background: #fff;
+}
+
+.atm-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.atm-btn {
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: background 0.15s;
+}
+
+.atm-btn--cancel { background: #f0ece6; color: #6b6560; }
+.atm-btn--cancel:hover { background: #e8e4de; }
+.atm-btn--add { background: #2d2926; color: #fff; }
+.atm-btn--add:hover:not(:disabled) { background: #1a1714; }
+.atm-btn--add:disabled { opacity: 0.4; cursor: not-allowed; }
