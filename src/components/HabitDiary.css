@@ -278,3 +278,39 @@
   color: #9a938c;
   line-height: 1.2;
 }
+
+/* ── Responsive ── */
+@media (max-width: 767px) {
+  .hd-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .hd-title {
+    font-size: 13px;
+  }
+
+  .hd-nav-btn {
+    width: 34px;
+    height: 34px;
+    font-size: 17px;
+  }
+
+  .hd-habit-name {
+    font-size: 13px;
+  }
+
+  .hd-habit-detail {
+    font-size: 10px;
+  }
+
+  .hd-check-btn {
+    width: 28px;
+    height: 28px;
+  }
+
+  .hd-time-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+}

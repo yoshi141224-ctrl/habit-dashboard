@@ -140,3 +140,130 @@
 
 .ls-quote p { margin-bottom: 4px; }
 .ls-quote footer { font-style: normal; font-size: 9px; color: #b0a89e; }
+
+/* ── Hamburger button (hidden on desktop) ── */
+.ls-hamburger {
+  display: none;
+}
+
+/* ── Backdrop (hidden by default) ── */
+.ls-backdrop {
+  display: none;
+}
+
+/* ── Close button (hidden on desktop) ── */
+.ls-close-btn {
+  display: none;
+}
+
+/* ── Tablet (768〜1023px) ── */
+@media (max-width: 1023px) and (min-width: 768px) {
+  .ls-root {
+    width: 200px;
+  }
+
+  .ls-clock {
+    font-size: 26px;
+  }
+
+  .ls-content {
+    padding: 14px 10px 16px;
+  }
+}
+
+/* ── Mobile (〜767px) ── */
+@media (max-width: 767px) {
+  /* Sidebar becomes a drawer */
+  .ls-root {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 280px;
+    height: 100%;
+    height: 100dvh;
+    z-index: 200;
+    transform: translateX(-100%);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.18);
+    overflow-y: auto;
+    flex-direction: row;
+  }
+
+  .ls-root--open {
+    transform: translateX(0);
+  }
+
+  /* Hamburger button */
+  .ls-hamburger {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 150;
+    background: #fff;
+    border: 1.5px solid #e8e4de;
+    border-radius: 10px;
+    padding: 0;
+    cursor: pointer;
+    width: 44px;
+    height: 44px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .ls-hamburger span {
+    display: block;
+    width: 20px;
+    height: 2px;
+    background: #2d2926;
+    border-radius: 2px;
+    transition: all 0.22s ease;
+    transform-origin: center;
+  }
+
+  /* Backdrop overlay */
+  .ls-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.38);
+    z-index: 199;
+    animation: fadeIn 0.2s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  /* Close button */
+  .ls-close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: #f5f2ee;
+    border: none;
+    border-radius: 8px;
+    width: 34px;
+    height: 34px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #2d2926;
+    z-index: 10;
+    flex-shrink: 0;
+  }
+
+  .ls-content {
+    padding-top: 52px;
+  }
+
+  .ls-clock {
+    font-size: 28px;
+  }
+}

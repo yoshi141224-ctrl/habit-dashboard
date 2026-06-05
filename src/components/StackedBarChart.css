@@ -94,3 +94,36 @@
   font-weight: 700;
   color: #1e1b17;
 }
+
+/* ── Responsive ── */
+@media (max-width: 1023px) and (min-width: 768px) {
+  .sbc-header {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+}
+
+@media (max-width: 767px) {
+  .sbc-card {
+    overflow-x: hidden;
+  }
+
+  .sbc-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .sbc-title {
+    font-size: 13px;
+  }
+
+  .sbc-tab {
+    font-size: 10px;
+    padding: 3px 8px;
+  }
+
+  .sbc-legend {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+}

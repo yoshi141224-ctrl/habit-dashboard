@@ -230,3 +230,47 @@
 .tl-context-delete:hover {
   background: #fff5f5;
 }
+
+/* ── Responsive ── */
+@media (max-width: 767px) {
+  .tl-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .tl-title {
+    font-size: 13px;
+  }
+
+  .tl-input-row {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .tl-input {
+    font-size: 14px;
+    padding: 10px 12px;
+    min-height: 44px;
+  }
+
+  .tl-add-btn {
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  .tl-task-title {
+    font-size: 13px;
+  }
+
+  .tl-task-tag {
+    font-size: 10px;
+  }
+
+  .tl-checkbox {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+}

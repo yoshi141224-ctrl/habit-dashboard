@@ -68,3 +68,31 @@
   font-weight: 700;
   color: #1e1b17;
 }
+
+/* ── Responsive ── */
+@media (max-width: 1023px) and (min-width: 768px) {
+  .bc-header {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+}
+
+@media (max-width: 767px) {
+  .bc-card {
+    overflow-x: hidden;
+  }
+
+  .bc-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .bc-title {
+    font-size: 13px;
+  }
+
+  .bc-tab {
+    font-size: 10px;
+    padding: 3px 8px;
+  }
+}

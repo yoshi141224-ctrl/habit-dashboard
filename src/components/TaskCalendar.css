@@ -308,3 +308,36 @@
   color: #939b7e;
   font-weight: 500;
 }
+
+/* ── Responsive ── */
+@media (max-width: 767px) {
+  .tc-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .tc-day-name {
+    font-size: 10px;
+  }
+
+  .tc-day {
+    font-size: 10px;
+    min-height: 40px;
+    padding: 4px 2px 2px;
+  }
+
+  .tc-day-num {
+    font-size: 11px;
+  }
+
+  .tc-task-chip {
+    font-size: 9px;
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+
+  .tc-detail-panel {
+    padding: 12px;
+    font-size: 12px;
+  }
+}

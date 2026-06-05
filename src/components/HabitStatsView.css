@@ -169,3 +169,37 @@
   color: #939b7e;
   font-weight: 700;
 }
+
+/* ── Responsive ── */
+@media (max-width: 767px) {
+  .hsv-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .hsv-title {
+    font-size: 13px;
+  }
+
+  .hsv-tabs {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .hsv-tab {
+    font-size: 10px;
+    padding: 3px 8px;
+  }
+
+  .hsv-type-toggle {
+    flex-wrap: wrap;
+  }
+
+  .hsv-big-pct {
+    font-size: 44px;
+  }
+
+  .hsv-habit-name {
+    font-size: 12px;
+  }
+}

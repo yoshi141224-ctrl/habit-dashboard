@@ -13,7 +13,6 @@ import FocusTimer from './components/FocusTimer';
 import CompletedTasksLog from './components/CompletedTasksLog';
 import TaskCalendar from './components/TaskCalendar';
 import HabitStatsView from './components/HabitStatsView';
-import MobileView from './components/MobileView';
 import type { StackedBarDatum, BarChartDatum } from './types';
 import { ITEM_COLORS } from './types';
 
@@ -206,51 +205,7 @@ export default function App() {
           />
         )}
 
-        {activeNav === 'mobile' && (
-          <MobileView
-            habits={habits.habits}
-            completions={habits.completions}
-            selectedDate={habits.selectedDate}
-            completionRate={habits.completionRate}
-            todayLogs={todayLogs}
-            sessions={timer.todaySessions}
-            colorMap={itemColorMap}
-            activeItemId={timer.status === 'idle' ? selectedItemId : timer.currentItemId}
-            timerRunning={timer.status === 'running'}
-            onToggleHabit={habits.toggleHabit}
-            onNavigateDate={habits.navigateDate}
-            onAddHabit={habits.addHabit}
-            onRemoveHabit={habits.removeHabit}
-            onEditHabit={habits.editHabit}
-            onSelectItem={selectItem}
-            tasks={tasks.tasks}
-            completedTasks={tasks.completedTasks}
-            onToggleTask={tasks.toggleTask}
-            onStarTask={tasks.toggleStar}
-            onAddTask={tasks.addTask}
-            onRemoveTask={tasks.removeTask}
-            onRemoveCompleted={tasks.removeCompleted}
-            onClearCompleted={tasks.clearAllCompleted}
-            timerStatus={timer.status}
-            timerElapsed={timer.elapsed}
-            totalFocusSeconds={timer.totalFocusSeconds}
-            pendingNotes={timer.pendingNotes}
-            activeItemName={activeItemName}
-            activeItemColor={activeItemColor}
-            onTimerStart={handleStart}
-            onTimerPause={timer.pause}
-            onTimerReset={timer.reset}
-            onNotesChange={timer.setPendingNotes}
-            formatTime={timer.formatTime}
-            stackedData={stackedData}
-            monthStackedData={monthStackedData}
-            legendItems={legendItems}
-            weeklyHabitData={habits.weeklyHabitData}
-            monthHabitData={monthHabitData}
-          />
-        )}
-
-        {activeNav !== 'calendar' && activeNav !== 'completed' && activeNav !== 'stats' && activeNav !== 'mobile' && (
+        {activeNav !== 'calendar' && activeNav !== 'completed' && activeNav !== 'stats' && (
           <>
             <div className="charts-row">
               <StackedBarChart

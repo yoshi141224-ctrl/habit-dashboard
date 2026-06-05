@@ -208,3 +208,67 @@
 }
 
 .ft-notes:focus { border-color: #2d2926; background: #fff; }
+
+/* ── Responsive ── */
+@media (max-width: 1023px) and (min-width: 768px) {
+  .ft-root {
+    width: 220px;
+    padding: 18px 14px;
+  }
+}
+
+@media (max-width: 767px) {
+  .ft-root {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    min-height: auto;
+    border-left: none;
+    border-top: 1.5px solid #ede9e3;
+    border-radius: 16px 16px 0 0;
+    padding: 12px 16px 16px;
+    gap: 10px;
+    z-index: 100;
+    box-shadow: 0 -4px 16px rgba(0,0,0,0.08);
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .ft-item-label {
+    font-size: 13px;
+    flex: 1;
+    min-width: 120px;
+  }
+
+  .ft-elapsed {
+    font-size: 28px;
+  }
+
+  .ft-controls {
+    flex-direction: row;
+    gap: 8px;
+    flex-wrap: nowrap;
+  }
+
+  .ft-btn {
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 13px;
+    padding: 10px 14px;
+  }
+
+  .ft-notes-wrap {
+    width: 100%;
+  }
+
+  .ft-notes {
+    font-size: 13px;
+  }
+
+  .ft-sessions-section {
+    display: none;
+  }
+}

@@ -9,6 +9,7 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   color: #1e1b17;
   line-height: 1.4;
+  overflow-x: hidden;
 }
 
 .app-layout {
@@ -43,4 +44,51 @@ body {
 .charts-row .card {
   flex: 1;
   min-width: 0;
+}
+
+/* ── Tablet (768〜1023px) ── */
+@media (max-width: 1023px) and (min-width: 768px) {
+  .center-area {
+    padding: 18px 14px;
+    gap: 16px;
+  }
+
+  .card {
+    padding: 16px;
+  }
+
+  .charts-row {
+    gap: 12px;
+  }
+}
+
+/* ── Mobile (〜767px) ── */
+@media (max-width: 767px) {
+  body {
+    overflow-x: hidden;
+  }
+
+  .app-layout {
+    flex-direction: column;
+    position: relative;
+  }
+
+  .center-area {
+    /* 44px top for hamburger, 16px bottom + FocusTimer height (~90px) */
+    padding: 68px 12px 110px;
+    gap: 12px;
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
+  .card {
+    padding: 14px 12px;
+    border-radius: 12px;
+  }
+
+  .charts-row {
+    flex-direction: column;
+    gap: 12px;
+  }
 }
