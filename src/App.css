@@ -49,7 +49,8 @@ body {
 /* ── Tablet (768〜1023px) ── */
 @media (max-width: 1023px) and (min-width: 768px) {
   .center-area {
-    padding: 18px 14px;
+    /* bottom: 64px peek bar + 16px breathing room */
+    padding: 18px 14px 84px;
     gap: 16px;
   }
 
@@ -74,8 +75,8 @@ body {
   }
 
   .center-area {
-    /* 44px top for hamburger, 16px bottom + FocusTimer height (~90px) */
-    padding: 68px 12px 110px;
+    /* 44px top for hamburger + 20px space; bottom = 64px peek bar + 16px breathing room */
+    padding: 68px 12px 84px;
     gap: 12px;
     width: 100%;
     max-width: 100vw;

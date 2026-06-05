@@ -4,6 +4,7 @@ import { useHabits } from './hooks/useHabits';
 import { useTasks } from './hooks/useTasks';
 import { useTimeLogs } from './hooks/useTimeLogs';
 import { useTimer } from './hooks/useTimer';
+import { useGoogleCalendar } from './hooks/useGoogleCalendar';
 import LeftSidebar from './components/LeftSidebar';
 import StackedBarChart from './components/StackedBarChart';
 import BarChart from './components/BarChart';
@@ -22,6 +23,7 @@ export default function App() {
   const habits = useHabits();
   const tasks = useTasks();
   const timeLogs = useTimeLogs();
+  const gcal = useGoogleCalendar();
   const [activeNav, setActiveNav] = useState('home');
 
   // Selected item for the timer (habit or task)
@@ -51,7 +53,17 @@ export default function App() {
     }
   }, [timeLogs]);
 
-  const timer = useTimer({ onComplete: handleTimerComplete });
+  // onSessionSaved: sync to Google Calendar when a session is completed
+  const handleSessionSaved = useCallback((session: import('./types').FocusSession) => {
+    if (!gcal.connected || !session.itemId) return;
+    const habit = habits.habits.find(h => h.id === session.itemId);
+    const task  = tasks.tasks.find(t => t.id === session.itemId);
+    const name  = habit?.name ?? task?.title ?? 'Focus Session';
+    const color = itemColorMap[session.itemId] ?? null;
+    gcal.createEvent(session, name, color);
+  }, [gcal, habits.habits, tasks.tasks, itemColorMap]);
+
+  const timer = useTimer({ onComplete: handleTimerComplete, onSessionSaved: handleSessionSaved });
 
   // Item name/color for FocusTimer display
   const activeTimerItemId = timer.currentItemId ?? selectedItemId;
@@ -268,6 +280,13 @@ export default function App() {
         onReset={timer.reset}
         onNotesChange={timer.setPendingNotes}
         formatTime={timer.formatTime}
+        gcalConnected={gcal.connected}
+        gcalSyncing={gcal.syncing}
+        gcalLastError={gcal.lastError}
+        gcalClientId={gcal.clientId}
+        onGcalClientIdChange={gcal.setClientId}
+        onGcalConnect={gcal.connect}
+        onGcalDisconnect={gcal.disconnect}
       />
     </div>
   );

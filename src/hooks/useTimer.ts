@@ -4,6 +4,7 @@ import { LS_SESSIONS } from '../types';
 
 interface TimerOptions {
   onComplete?: (itemId: string | null, seconds: number) => void;
+  onSessionSaved?: (session: FocusSession) => void;
 }
 
 function load<T>(key: string, fallback: T): T {
@@ -15,7 +16,7 @@ function load<T>(key: string, fallback: T): T {
   }
 }
 
-export function useTimer({ onComplete }: TimerOptions = {}) {
+export function useTimer({ onComplete, onSessionSaved }: TimerOptions = {}) {
   const [status, setStatus] = useState<'idle' | 'running' | 'paused'>('idle');
   const [elapsed, setElapsed] = useState(0);
   const [sessions, setSessions] = useState<FocusSession[]>(() => load(LS_SESSIONS, []));
@@ -24,8 +25,10 @@ export function useTimer({ onComplete }: TimerOptions = {}) {
   const [pendingNotes, setPendingNotes] = useState('');
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const onCompleteRef = useRef(onComplete);
+  const onSessionSavedRef = useRef(onSessionSaved);
 
   useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
+  useEffect(() => { onSessionSavedRef.current = onSessionSaved; }, [onSessionSaved]);
 
   useEffect(() => {
     localStorage.setItem(LS_SESSIONS, JSON.stringify(sessions));
@@ -69,6 +72,7 @@ export function useTimer({ onComplete }: TimerOptions = {}) {
       };
       setSessions(prev => [...prev, session]);
       onCompleteRef.current?.(currentItemId, elapsed);
+      onSessionSavedRef.current?.(session);
     }
     setElapsed(0);
     setStatus('idle');
