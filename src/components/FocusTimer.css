@@ -366,10 +366,28 @@
     /* No touch-action here — keeps main page scroll unaffected */
   }
 
-  /* Expanded state */
+  /* Collapsed: only peek bar should receive pointer events.
+     iOS Safari extends touch areas of fixed+transform elements across
+     the whole screen — pointer-events:none prevents that entirely. */
+  .ft-root {
+    pointer-events: none;
+  }
+
+  /* Peek bar is always interactive */
+  .ft-peek {
+    pointer-events: auto;
+  }
+
+  /* Expanded state: entire panel is interactive */
   .ft-root--expanded {
     transform: translateY(0);
     overflow-y: auto;
+    pointer-events: auto;
+  }
+
+  /* Body is interactive when expanded */
+  .ft-root--expanded .ft-body {
+    pointer-events: auto;
   }
 
   /* ── Peek bar (64px) ── */

@@ -58,43 +58,10 @@ export default function HabitDiary({
   const [showModal, setShowModal] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ habitId: string; x: number; y: number } | null>(null);
   const [editState, setEditState] = useState<EditState>(null);
-  const [celebrating, setCelebrating] = useState<Set<string>>(new Set());
+  // Use plain object instead of Set — more compatible across iOS Safari versions
+  const [celebrating, setCelebrating] = useState<Record<string, boolean>>({});
   const inputRef = useRef<HTMLInputElement>(null);
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const longPressTarget = useRef<{ habitId: string; x: number; y: number } | null>(null);
-
-  function handleLongPressStart(e: React.TouchEvent, habitId: string) {
-    const touch = e.touches[0];
-    longPressTarget.current = { habitId, x: touch.clientX, y: touch.clientY };
-    longPressTimer.current = setTimeout(() => {
-      if (longPressTarget.current) {
-        setContextMenu({
-          habitId: longPressTarget.current.habitId,
-          x: longPressTarget.current.x,
-          y: longPressTarget.current.y,
-        });
-      }
-    }, 600);
-  }
-
-  function handleLongPressEnd() {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-    longPressTarget.current = null;
-  }
-
-  function handleLongPressMove(e: React.TouchEvent) {
-    if (!longPressTarget.current) return;
-    const touch = e.touches[0];
-    const dx = touch.clientX - longPressTarget.current.x;
-    const dy = touch.clientY - longPressTarget.current.y;
-    // Cancel long press if finger moved more than 10px
-    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
-      handleLongPressEnd();
-    }
-  }
+  const celebrateTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   function showCellMenu(e: React.MouseEvent, habitId: string) {
     e.preventDefault();
@@ -108,13 +75,18 @@ export default function HabitDiary({
     onToggle(habitId, date);
     // Celebrate only when marking as done (not undoing)
     if (!isDone) {
-      setCelebrating(prev => new Set([...prev, habitId]));
-      setTimeout(() => {
+      setCelebrating(prev => ({ ...prev, [habitId]: true }));
+      // Clear any existing timer for this habit
+      if (celebrateTimers.current[habitId]) {
+        clearTimeout(celebrateTimers.current[habitId]);
+      }
+      celebrateTimers.current[habitId] = setTimeout(() => {
         setCelebrating(prev => {
-          const next = new Set(prev);
-          next.delete(habitId);
+          const next = { ...prev };
+          delete next[habitId];
           return next;
         });
+        delete celebrateTimers.current[habitId];
       }, 550);
     }
   }
@@ -149,7 +121,6 @@ export default function HabitDiary({
     <div
       className="hd-card card"
       onClick={() => contextMenu && setContextMenu(null)}
-      onTouchEnd={() => { if (contextMenu) setContextMenu(null); }}
     >
       <div className="hd-header">
         <div className="hd-header-left">
@@ -178,7 +149,7 @@ export default function HabitDiary({
           const color = colorMap[habit.id] ?? '#9a938c';
           const habitSessions = sessions.filter(s => s.itemId === habit.id);
 
-          const isCelebrating = celebrating.has(habit.id);
+          const isCelebrating = celebrating[habit.id] === true;
 
           return (
             <div
@@ -186,9 +157,6 @@ export default function HabitDiary({
               className={`hd-cell${isDone ? ' hd-cell--done' : ''}${isActive ? ' hd-cell--active' : ''}${isCelebrating ? ' hd-cell--celebrate' : ''}`}
               style={isActive ? { borderColor: color, background: color + '10' } : undefined}
               onContextMenu={e => { e.preventDefault(); setContextMenu({ habitId: habit.id, x: e.clientX, y: e.clientY }); }}
-              onTouchStart={e => handleLongPressStart(e, habit.id)}
-              onTouchEnd={handleLongPressEnd}
-              onTouchMove={handleLongPressMove}
             >
               {/* Checkbox — toggle completion */}
               <button
