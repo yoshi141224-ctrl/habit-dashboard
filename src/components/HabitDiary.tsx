@@ -60,6 +60,48 @@ export default function HabitDiary({
   const [editState, setEditState] = useState<EditState>(null);
   const [celebrating, setCelebrating] = useState<Set<string>>(new Set());
   const inputRef = useRef<HTMLInputElement>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTarget = useRef<{ habitId: string; x: number; y: number } | null>(null);
+
+  function handleLongPressStart(e: React.TouchEvent, habitId: string) {
+    const touch = e.touches[0];
+    longPressTarget.current = { habitId, x: touch.clientX, y: touch.clientY };
+    longPressTimer.current = setTimeout(() => {
+      if (longPressTarget.current) {
+        setContextMenu({
+          habitId: longPressTarget.current.habitId,
+          x: longPressTarget.current.x,
+          y: longPressTarget.current.y,
+        });
+      }
+    }, 600);
+  }
+
+  function handleLongPressEnd() {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+    longPressTarget.current = null;
+  }
+
+  function handleLongPressMove(e: React.TouchEvent) {
+    if (!longPressTarget.current) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - longPressTarget.current.x;
+    const dy = touch.clientY - longPressTarget.current.y;
+    // Cancel long press if finger moved more than 10px
+    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+      handleLongPressEnd();
+    }
+  }
+
+  function showCellMenu(e: React.MouseEvent, habitId: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setContextMenu({ habitId, x: rect.left, y: rect.bottom + 4 });
+  }
 
   function handleToggle(habitId: string, date: string) {
     const isDone = (completions[date] ?? []).includes(habitId);
@@ -104,7 +146,11 @@ export default function HabitDiary({
   const completionRate = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
   return (
-    <div className="hd-card card" onClick={() => contextMenu && setContextMenu(null)}>
+    <div
+      className="hd-card card"
+      onClick={() => contextMenu && setContextMenu(null)}
+      onTouchEnd={() => { if (contextMenu) setContextMenu(null); }}
+    >
       <div className="hd-header">
         <div className="hd-header-left">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9a938c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -140,6 +186,9 @@ export default function HabitDiary({
               className={`hd-cell${isDone ? ' hd-cell--done' : ''}${isActive ? ' hd-cell--active' : ''}${isCelebrating ? ' hd-cell--celebrate' : ''}`}
               style={isActive ? { borderColor: color, background: color + '10' } : undefined}
               onContextMenu={e => { e.preventDefault(); setContextMenu({ habitId: habit.id, x: e.clientX, y: e.clientY }); }}
+              onTouchStart={e => handleLongPressStart(e, habit.id)}
+              onTouchEnd={handleLongPressEnd}
+              onTouchMove={handleLongPressMove}
             >
               {/* Checkbox — toggle completion */}
               <button
@@ -220,6 +269,18 @@ export default function HabitDiary({
               {isActive && timerRunning && (
                 <span className="hd-running-dot" style={{ background: color }} />
               )}
+
+              {/* ⋮ menu button (always visible, primary mobile delete path) */}
+              <button
+                type="button"
+                className="hd-kebab-btn"
+                onClick={e => showCellMenu(e, habit.id)}
+                aria-label="More options"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/>
+                </svg>
+              </button>
             </div>
           );
         })}
@@ -244,8 +305,30 @@ export default function HabitDiary({
           style={{ top: contextMenu.y, left: contextMenu.x }}
           onClick={e => e.stopPropagation()}
         >
+          <button
+            type="button"
+            className="hd-context-item"
+            onClick={() => {
+              const habit = habits.find(h => h.id === contextMenu.habitId);
+              if (habit) setEditState({ habitId: habit.id, field: 'name', value: habit.name });
+              setContextMenu(null);
+            }}
+          >
+            ✏️ Edit name
+          </button>
+          <button
+            type="button"
+            className="hd-context-item"
+            onClick={() => {
+              const habit = habits.find(h => h.id === contextMenu.habitId);
+              if (habit) setEditState({ habitId: habit.id, field: 'detail', value: habit.detail });
+              setContextMenu(null);
+            }}
+          >
+            📝 Edit detail
+          </button>
           <button type="button" className="hd-context-item hd-context-delete" onClick={() => { onRemoveHabit(contextMenu.habitId); setContextMenu(null); }}>
-            Remove habit
+            🗑️ Remove habit
           </button>
         </div>
       )}

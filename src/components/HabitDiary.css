@@ -215,6 +215,57 @@
   flex-shrink: 0;
 }
 
+/* ⋮ Kebab menu button */
+.hd-kebab-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #c0b8b2;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+  flex-shrink: 0;
+  min-width: 24px;
+  min-height: 24px;
+  touch-action: manipulation;
+}
+
+/* Show on hover (desktop) */
+.hd-cell:hover .hd-kebab-btn {
+  opacity: 1;
+}
+
+/* Always show on mobile */
+@media (max-width: 1023px) {
+  .hd-kebab-btn {
+    opacity: 0.5;
+    min-width: 36px;
+    min-height: 36px;
+  }
+  .hd-kebab-btn:active {
+    opacity: 1;
+    background: #f0ece6;
+  }
+}
+
+.hd-kebab-btn:hover {
+  opacity: 1;
+  color: #2d2926;
+  background: #f0ece6;
+}
+
+/* Make cells relative for absolute positioning of kebab btn */
+.hd-cell {
+  position: relative;
+}
+
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
@@ -255,23 +306,29 @@
   position: fixed;
   background: #fff;
   border: 1px solid #ede9e3;
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.08);
   z-index: 1000;
   overflow: hidden;
-  min-width: 140px;
+  min-width: 168px;
 }
 
 .hd-context-item {
   width: 100%;
-  padding: 9px 14px;
+  padding: 11px 16px;
   text-align: left;
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 12.5px;
+  font-size: 13px;
+  font-family: inherit;
   color: #1e1b17;
   transition: background 0.12s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  touch-action: manipulation;
 }
 
 .hd-context-item:hover { background: #faf8f5; }

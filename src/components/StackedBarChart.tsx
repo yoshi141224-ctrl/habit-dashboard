@@ -55,6 +55,7 @@ export default function StackedBarChart({ weekData, monthData, legendItems }: Pr
         <div className="sbc-tabs">
           {(['Day', '7 Days', 'Month'] as Tab[]).map(tab => (
             <button
+              type="button"
               key={tab}
               className={`sbc-tab${activeTab === tab ? ' sbc-tab--active' : ''}`}
               onClick={() => setActiveTab(tab)}

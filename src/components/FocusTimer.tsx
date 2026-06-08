@@ -93,11 +93,15 @@ export default function FocusTimer({
 
       <aside
         className={`ft-root${mobileExpanded ? ' ft-root--expanded' : ''}`}
+      >
+      {/* ── Peek bar (visible on mobile/tablet when collapsed) ── */}
+      {/* Touch handlers ONLY here — not on ft-root to prevent iOS Safari
+          from intercepting touches anywhere on the screen */}
+      <div
+        className="ft-peek"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-      {/* ── Peek bar (visible on mobile/tablet when collapsed) ── */}
-      <div className="ft-peek">
         <div className="ft-drag-handle" onClick={handlePeekClick} />
         <div className="ft-peek-row">
           <span className="ft-peek-time">{formatTime(elapsed)}</span>

@@ -363,7 +363,7 @@
     transform: translateY(calc(100% - 64px));
     transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
     flex-direction: column;
-    touch-action: pan-x;
+    /* No touch-action here — keeps main page scroll unaffected */
   }
 
   /* Expanded state */
@@ -389,6 +389,9 @@
     border-radius: 20px 20px 0 0;
     user-select: none;
     transition: background 0.2s;
+    /* Swipe gesture detection is here — pan-x lets browser handle horiz,
+       JS handles vertical swipe to expand/collapse */
+    touch-action: pan-x;
   }
 
   .ft-drag-handle {

@@ -314,15 +314,15 @@ export default function MobileView({
                 {/* Buttons */}
                 <div className="mv-timer-btns">
                   {timerStatus === 'running' ? (
-                    <button className="mv-timer-btn mv-timer-btn--pause" onClick={onTimerPause}>
+                    <button type="button" className="mv-timer-btn mv-timer-btn--pause" onClick={onTimerPause}>
                       Pause
                     </button>
                   ) : (
-                    <button className="mv-timer-btn mv-timer-btn--start" onClick={onTimerStart}>
+                    <button type="button" className="mv-timer-btn mv-timer-btn--start" onClick={onTimerStart}>
                       {timerStatus === 'paused' ? 'Resume' : 'Start'}
                     </button>
                   )}
-                  <button className="mv-timer-btn mv-timer-btn--reset" onClick={onTimerReset}>
+                  <button type="button" className="mv-timer-btn mv-timer-btn--reset" onClick={onTimerReset}>
                     Reset
                   </button>
                 </div>
@@ -371,6 +371,7 @@ export default function MobileView({
           {/* Bottom navigation */}
           <nav className="mv-bottom-nav">
             <button
+              type="button"
               className={`mv-nav-btn${tab === 'home' ? ' mv-nav-btn--active' : ''}`}
               onClick={() => setTab('home')}
             >
@@ -378,6 +379,7 @@ export default function MobileView({
               ホーム
             </button>
             <button
+              type="button"
               className={`mv-nav-btn${tab === 'charts' ? ' mv-nav-btn--active' : ''}`}
               onClick={() => setTab('charts')}
             >
@@ -385,6 +387,7 @@ export default function MobileView({
               チャート
             </button>
             <button
+              type="button"
               className={`mv-nav-btn${tab === 'timer' ? ' mv-nav-btn--active' : ''}`}
               onClick={() => setTab('timer')}
             >
@@ -392,6 +395,7 @@ export default function MobileView({
               タイマー
             </button>
             <button
+              type="button"
               className={`mv-nav-btn${tab === 'log' ? ' mv-nav-btn--active' : ''}`}
               onClick={() => setTab('log')}
             >

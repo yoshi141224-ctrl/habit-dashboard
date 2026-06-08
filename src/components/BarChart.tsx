@@ -55,6 +55,7 @@ export default function BarChart({ title, color, weekData, monthData }: Props) {
         <div className="bc-tabs">
           {(['Day', '7 Days', 'Month'] as Tab[]).map(tab => (
             <button
+              type="button"
               key={tab}
               className={`bc-tab${activeTab === tab ? ' bc-tab--active' : ''}`}
               onClick={() => setActiveTab(tab)}
