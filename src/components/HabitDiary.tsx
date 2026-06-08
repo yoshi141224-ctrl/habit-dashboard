@@ -58,7 +58,24 @@ export default function HabitDiary({
   const [showModal, setShowModal] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ habitId: string; x: number; y: number } | null>(null);
   const [editState, setEditState] = useState<EditState>(null);
+  const [celebrating, setCelebrating] = useState<Set<string>>(new Set());
   const inputRef = useRef<HTMLInputElement>(null);
+
+  function handleToggle(habitId: string, date: string) {
+    const isDone = (completions[date] ?? []).includes(habitId);
+    onToggle(habitId, date);
+    // Celebrate only when marking as done (not undoing)
+    if (!isDone) {
+      setCelebrating(prev => new Set([...prev, habitId]));
+      setTimeout(() => {
+        setCelebrating(prev => {
+          const next = new Set(prev);
+          next.delete(habitId);
+          return next;
+        });
+      }, 550);
+    }
+  }
 
   function startEdit(e: React.MouseEvent, habitId: string, field: 'name' | 'detail', currentValue: string) {
     e.stopPropagation();
@@ -115,10 +132,12 @@ export default function HabitDiary({
           const color = colorMap[habit.id] ?? '#9a938c';
           const habitSessions = sessions.filter(s => s.itemId === habit.id);
 
+          const isCelebrating = celebrating.has(habit.id);
+
           return (
             <div
               key={habit.id}
-              className={`hd-cell${isDone ? ' hd-cell--done' : ''}${isActive ? ' hd-cell--active' : ''}`}
+              className={`hd-cell${isDone ? ' hd-cell--done' : ''}${isActive ? ' hd-cell--active' : ''}${isCelebrating ? ' hd-cell--celebrate' : ''}`}
               style={isActive ? { borderColor: color, background: color + '10' } : undefined}
               onContextMenu={e => { e.preventDefault(); setContextMenu({ habitId: habit.id, x: e.clientX, y: e.clientY }); }}
             >
@@ -126,7 +145,7 @@ export default function HabitDiary({
               <button
                 type="button"
                 className="hd-checkbox-btn"
-                onClick={e => { e.stopPropagation(); onToggle(habit.id, selectedDate); }}
+                onClick={e => { e.stopPropagation(); handleToggle(habit.id, selectedDate); }}
               >
                 <svg width="28" height="28" viewBox="0 0 28 28">
                   <circle cx="14" cy="14" r="13" fill={isDone ? '#2d2926' : 'none'} stroke={isDone ? '#2d2926' : '#ccc8c4'} strokeWidth="1.5"/>

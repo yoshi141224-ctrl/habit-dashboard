@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { Task, CompletedTask } from '../types';
 import { LS_TASKS, LS_COMPLETED_TASKS } from '../types';
 
@@ -23,6 +23,9 @@ export function useTasks() {
   const [completedTasks, setCompletedTasks] = useState<CompletedTask[]>(() =>
     load(LS_COMPLETED_TASKS, [])
   );
+  // Pending completions: tasks that were checked but not yet committed (undo window)
+  const [pendingCompletions, setPendingCompletions] = useState<Task[]>([]);
+  const pendingTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   useEffect(() => {
     localStorage.setItem(LS_TASKS, JSON.stringify(tasks));
@@ -32,21 +35,43 @@ export function useTasks() {
     localStorage.setItem(LS_COMPLETED_TASKS, JSON.stringify(completedTasks));
   }, [completedTasks]);
 
-  // Complete a task: remove from active list, add to completed log with date
+  // Complete a task: move to pending for 5s (undo window), then commit to completed log
   function toggleTask(taskId: string) {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
-    const log: CompletedTask = {
-      id: task.id,
-      title: task.title,
-      tag: task.tag,
-      time: task.time,
-      starred: task.starred,
-      completedAt: new Date().toISOString(),
-      createdAt: task.createdAt,
-    };
-    setCompletedTasks(prev => [log, ...prev]);
+
+    // Move task out of active list, into pending
     setTasks(prev => prev.filter(t => t.id !== taskId));
+    setPendingCompletions(prev => [...prev, task]);
+
+    // Auto-commit after 5 seconds
+    pendingTimers.current[taskId] = setTimeout(() => {
+      setPendingCompletions(prev => prev.filter(t => t.id !== taskId));
+      const log: CompletedTask = {
+        id: task.id,
+        title: task.title,
+        tag: task.tag,
+        time: task.time,
+        starred: task.starred,
+        completedAt: new Date().toISOString(),
+        createdAt: task.createdAt,
+      };
+      setCompletedTasks(prev => [log, ...prev]);
+      delete pendingTimers.current[taskId];
+    }, 5000);
+  }
+
+  // Undo a pending completion: restore to active tasks
+  function undoTask(taskId: string) {
+    if (pendingTimers.current[taskId]) {
+      clearTimeout(pendingTimers.current[taskId]);
+      delete pendingTimers.current[taskId];
+    }
+    setPendingCompletions(prev => {
+      const task = prev.find(t => t.id === taskId);
+      if (task) setTasks(p => [...p, task]);
+      return prev.filter(t => t.id !== taskId);
+    });
   }
 
   function toggleStar(taskId: string) {
@@ -78,7 +103,9 @@ export function useTasks() {
   return {
     tasks,
     completedTasks,
+    pendingCompletions,
     toggleTask,
+    undoTask,
     toggleStar,
     addTask,
     removeTask,

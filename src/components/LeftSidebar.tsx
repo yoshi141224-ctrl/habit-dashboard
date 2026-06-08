@@ -27,12 +27,13 @@ interface Props {
   completionRate: number;
   completedCount: number;
   totalCount: number;
+  streak: number;
   donutSegments: DonutSegment[];
   activeNav: string;
   onNavChange: (nav: string) => void;
 }
 
-export default function LeftSidebar({ completionRate, completedCount, totalCount, donutSegments, activeNav, onNavChange }: Props) {
+export default function LeftSidebar({ completionRate, completedCount, totalCount, streak, donutSegments, activeNav, onNavChange }: Props) {
   const [time, setTime] = useState(new Date());
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -172,6 +173,15 @@ export default function LeftSidebar({ completionRate, completedCount, totalCount
             <p className="ls-score-label">{scoreLabel}</p>
             <p className="ls-score-detail">{completedCount} / {totalCount} habits completed</p>
           </div>
+
+          {/* Streak badge */}
+          {streak > 0 && (
+            <div className="ls-streak">
+              <span className="ls-streak-flame" aria-hidden="true">🔥</span>
+              <span className="ls-streak-num">{streak}</span>
+              <span className="ls-streak-label">day streak!</span>
+            </div>
+          )}
 
           {/* Daily Time Spent donut */}
           <div className="ls-donut-section">

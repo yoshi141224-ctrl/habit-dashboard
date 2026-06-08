@@ -191,6 +191,7 @@ export default function App() {
         completionRate={habits.completionRate}
         completedCount={completedCount}
         totalCount={habits.habits.length}
+        streak={habits.streak}
         donutSegments={donutSegments}
         activeNav={activeNav}
         onNavChange={setActiveNav}
@@ -252,12 +253,14 @@ export default function App() {
 
             <ToDoList
               tasks={tasks.tasks}
+              pendingCompletions={tasks.pendingCompletions}
               timeLogs={todayLogs}
               sessions={timer.todaySessions}
               activeItemId={timer.status === 'idle' ? selectedItemId : timer.currentItemId}
               timerRunning={timer.status === 'running'}
               colorMap={itemColorMap}
               onToggle={tasks.toggleTask}
+              onUndo={tasks.undoTask}
               onStar={tasks.toggleStar}
               onSelect={selectItem}
               onAdd={tasks.addTask}

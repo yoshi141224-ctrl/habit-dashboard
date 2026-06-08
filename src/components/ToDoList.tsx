@@ -20,12 +20,14 @@ function formatDurationShort(seconds: number): string {
 
 interface Props {
   tasks: Task[];
+  pendingCompletions: Task[];
   timeLogs: Record<string, number>;
   sessions: FocusSession[];
   activeItemId: string | null;
   timerRunning: boolean;
   colorMap: Record<string, string>;
   onToggle: (id: string) => void;
+  onUndo: (id: string) => void;
   onStar: (id: string) => void;
   onSelect: (id: string) => void;
   onAdd: (title: string, tag: string, time: string) => void;
@@ -39,8 +41,8 @@ function formatMinutes(seconds: number): string {
 }
 
 export default function ToDoList({
-  tasks, timeLogs, sessions, activeItemId, timerRunning,
-  colorMap, onToggle, onStar, onSelect, onAdd, onRemove,
+  tasks, pendingCompletions, timeLogs, sessions, activeItemId, timerRunning,
+  colorMap, onToggle, onUndo, onStar, onSelect, onAdd, onRemove,
 }: Props) {
   const [showModal, setShowModal] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null);
@@ -172,6 +174,33 @@ export default function ToDoList({
           <button type="button" className="tl-context-delete" onClick={() => { onRemove(contextMenu.id); setContextMenu(null); }}>
             Remove task
           </button>
+        </div>
+      )}
+
+      {/* Undo toast stack */}
+      {pendingCompletions.length > 0 && (
+        <div className="tl-toast-stack" onClick={e => e.stopPropagation()}>
+          {pendingCompletions.map(task => (
+            <div key={task.id} className="tl-toast">
+              <div className="tl-toast-top">
+                <svg width="14" height="14" viewBox="0 0 20 20" style={{ flexShrink: 0 }}>
+                  <circle cx="10" cy="10" r="9" fill="#4a9e5c" />
+                  <polyline points="5.5,10 8.5,13 14.5,7" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <span className="tl-toast-msg">"{task.title}" completed!</span>
+                <button
+                  type="button"
+                  className="tl-toast-undo"
+                  onClick={() => onUndo(task.id)}
+                >
+                  Undo
+                </button>
+              </div>
+              <div className="tl-toast-bar-track">
+                <div className="tl-toast-bar" />
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

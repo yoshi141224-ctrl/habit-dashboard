@@ -61,6 +61,24 @@ export function useHabits() {
     ? Math.round((todayCompletions.length / habits.length) * 100)
     : 0;
 
+  // Streak: consecutive days (ending today) with ≥1 habit completed
+  const streak = useMemo(() => {
+    let count = 0;
+    const d = new Date();
+    const todayKey = d.toISOString().slice(0, 10);
+    // If today has no completions, start counting from yesterday
+    if ((completions[todayKey] ?? []).length === 0) {
+      d.setDate(d.getDate() - 1);
+    }
+    while (count < 366) {
+      const key = d.toISOString().slice(0, 10);
+      if ((completions[key] ?? []).length === 0) break;
+      count++;
+      d.setDate(d.getDate() - 1);
+    }
+    return count;
+  }, [completions]);
+
   // Rolling last 7 days for chart
   const weeklyHabitData: BarChartDatum[] = useMemo(() => {
     const today = new Date();
@@ -116,9 +134,12 @@ export function useHabits() {
 
   function navigateDate(delta: -1 | 1) {
     setSelectedDate(prev => {
-      const d = new Date(prev);
+      const d = new Date(prev + 'T00:00:00');
       d.setDate(d.getDate() + delta);
-      return d.toISOString().slice(0, 10);
+      const next = d.toISOString().slice(0, 10);
+      // Block navigation into the future
+      if (next > TODAY()) return prev;
+      return next;
     });
   }
 
@@ -128,6 +149,7 @@ export function useHabits() {
     selectedDate,
     todayCompletions,
     completionRate,
+    streak,
     weeklyHabitData,
     toggleHabit,
     addHabit,

@@ -36,8 +36,10 @@ interface Props {
   onSelectItem: (id: string) => void;
   // Tasks
   tasks: Task[];
+  pendingCompletions: Task[];
   completedTasks: CompletedTask[];
   onToggleTask: (id: string) => void;
+  onUndoTask: (id: string) => void;
   onStarTask: (id: string) => void;
   onAddTask: (title: string, tag: string, time: string) => void;
   onRemoveTask: (id: string) => void;
@@ -87,8 +89,10 @@ export default function MobileView({
   onEditHabit,
   onSelectItem,
   tasks,
+  pendingCompletions,
   completedTasks,
   onToggleTask,
+  onUndoTask,
   onStarTask,
   onAddTask,
   onRemoveTask,
@@ -231,12 +235,14 @@ export default function MobileView({
 
                 <ToDoList
                   tasks={tasks}
+                  pendingCompletions={pendingCompletions}
                   timeLogs={todayLogs}
                   sessions={sessions}
                   activeItemId={activeItemId}
                   timerRunning={timerRunning}
                   colorMap={colorMap}
                   onToggle={onToggleTask}
+                  onUndo={onUndoTask}
                   onStar={onStarTask}
                   onSelect={onSelectItem}
                   onAdd={onAddTask}

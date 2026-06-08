@@ -102,6 +102,30 @@
   border-color: #ccc; /* overridden inline */
 }
 
+/* Completion celebration animation */
+@keyframes hd-celebrate {
+  0%   { transform: scale(1); }
+  25%  { transform: scale(1.07); }
+  50%  { transform: scale(0.96); }
+  75%  { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+
+.hd-cell--celebrate {
+  animation: hd-celebrate 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards;
+}
+
+/* Check circle pop animation when done */
+@keyframes hd-check-pop {
+  0%   { transform: scale(0.6); opacity: 0.6; }
+  60%  { transform: scale(1.15); }
+  100% { transform: scale(1);    opacity: 1; }
+}
+
+.hd-cell--celebrate .hd-checkbox-btn svg {
+  animation: hd-check-pop 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards;
+}
+
 .hd-cell--done .hd-habit-name {
   color: #6b6560;
 }
