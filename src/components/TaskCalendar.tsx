@@ -101,16 +101,16 @@ export default function TaskCalendar({ completedTasks }: Props) {
             <span className="tc-month-count">{monthTaskCount} completed this month</span>
           )}
         </div>
-        <button className="tc-today-btn" onClick={goToday}>Today</button>
+        <button type="button" className="tc-today-btn" onClick={goToday}>Today</button>
       </div>
 
       {/* ── Month Navigation ── */}
       <div className="tc-month-nav">
-        <button className="tc-nav-btn" onClick={prevMonth}>
+        <button type="button" className="tc-nav-btn" onClick={prevMonth}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M15 18l-6-6 6-6"/></svg>
         </button>
         <span className="tc-month-label">{MONTH_NAMES[viewMonth]} {viewYear}</span>
-        <button className="tc-nav-btn" onClick={nextMonth}>
+        <button type="button" className="tc-nav-btn" onClick={nextMonth}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M9 18l6-6-6-6"/></svg>
         </button>
       </div>
@@ -175,7 +175,7 @@ export default function TaskCalendar({ completedTasks }: Props) {
                 return `${['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()]}, ${MONTH_NAMES[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
               })()}
             </span>
-            <button className="tc-detail-close" onClick={() => setSelectedDay(null)}>×</button>
+            <button type="button" className="tc-detail-close" onClick={() => setSelectedDay(null)}>×</button>
           </div>
           {selectedTasks.length === 0 ? (
             <p className="tc-detail-empty">No completed tasks on this day.</p>

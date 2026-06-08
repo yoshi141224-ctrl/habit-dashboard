@@ -48,7 +48,7 @@ export default function CompletedTasksLog({ completedTasks, onRemove, onClearAll
           <span className="ctl-count">{completedTasks.length}</span>
         </div>
         {completedTasks.length > 0 && (
-          <button className="ctl-clear-btn" onClick={onClearAll}>Clear All</button>
+          <button type="button" className="ctl-clear-btn" onClick={onClearAll}>Clear All</button>
         )}
       </div>
 
@@ -100,6 +100,7 @@ export default function CompletedTasksLog({ completedTasks, onRemove, onClearAll
 
                       {/* Remove button */}
                       <button
+                        type="button"
                         className="ctl-remove-btn"
                         onClick={() => onRemove(task.id)}
                         title="Remove from log"

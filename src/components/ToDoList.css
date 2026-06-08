@@ -110,7 +110,11 @@
 
 .tl-row--done .tl-task-title {
   text-decoration: line-through;
+  text-decoration-color: #c0b8b2;
+  text-decoration-thickness: 1.5px;
   color: #b0a89e;
+  transition: color 0.25s ease, opacity 0.25s ease;
+  opacity: 0.75;
 }
 
 .tl-color-bar {
@@ -142,6 +146,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: color 0.25s ease, opacity 0.25s ease, text-decoration-color 0.25s ease;
 }
 
 .tl-tag {
@@ -269,8 +274,11 @@
   }
 
   .tl-checkbox {
-    width: 18px;
-    height: 18px;
+    min-width: 44px;
+    min-height: 44px;
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 }

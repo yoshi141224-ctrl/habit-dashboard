@@ -297,9 +297,12 @@
   }
 
   .hd-nav-btn {
-    width: 34px;
-    height: 34px;
-    font-size: 17px;
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   /* 4→2カラムに変更 */
@@ -333,8 +336,11 @@
   }
 
   .hd-check-btn {
-    width: 28px;
-    height: 28px;
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .hd-time-badge {
@@ -348,5 +354,20 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  /* タッチターゲット: チェックボックスボタン */
+  .hd-checkbox-btn {
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* タッチターゲット: add ボタン */
+  .hd-add-btn-header {
+    min-height: 44px;
+    padding: 0 12px;
   }
 }

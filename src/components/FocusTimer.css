@@ -1,3 +1,8 @@
+/* ── Backdrop (hidden on desktop) ── */
+.ft-backdrop {
+  display: none;
+}
+
 /* ═══════════════════════════════════════
    Focus Timer — Desktop (default)
 ═══════════════════════════════════════ */
@@ -328,6 +333,15 @@
    (≤ 1023px)
 ═══════════════════════════════════════ */
 @media (max-width: 1023px) {
+  /* ── Backdrop for expanded state ── */
+  .ft-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.3);
+    z-index: 99;
+  }
+
   /* ── Root becomes a fixed bottom sheet ── */
   .ft-root {
     position: fixed;
@@ -349,7 +363,7 @@
     transform: translateY(calc(100% - 64px));
     transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
     flex-direction: column;
-    touch-action: none;
+    touch-action: pan-x;
   }
 
   /* Expanded state */
@@ -366,22 +380,35 @@
     gap: 6px;
     height: 64px;
     padding: 10px 16px 8px;
-    cursor: pointer;
     flex-shrink: 0;
-    background: #fff;
+    background: linear-gradient(180deg, #fefefe 0%, #faf8f5 100%);
+    border-top: 1.5px solid rgba(196,148,118,0.18);
     position: sticky;
     top: 0;
     z-index: 2;
     border-radius: 20px 20px 0 0;
     user-select: none;
+    transition: background 0.2s;
   }
 
   .ft-drag-handle {
-    width: 36px;
+    width: 44px;
     height: 4px;
-    background: #d0ccc6;
+    background: #bbb5ae;
     border-radius: 2px;
     flex-shrink: 0;
+    transition: background 0.2s, width 0.2s;
+    cursor: pointer;
+  }
+
+  .ft-drag-handle:hover {
+    background: #9a938c;
+    width: 52px;
+  }
+
+  .ft-peek:hover .ft-drag-handle {
+    background: #9a938c;
+    width: 52px;
   }
 
   .ft-peek-row {
@@ -392,13 +419,15 @@
   }
 
   .ft-peek-time {
-    font-size: 20px;
+    font-size: 21px;
     font-weight: 700;
     color: #1e1b17;
     font-variant-numeric: tabular-nums;
-    letter-spacing: -0.01em;
+    font-feature-settings: "tnum" 1, "lnum" 1;
+    letter-spacing: -0.02em;
     flex-shrink: 0;
     min-width: 82px;
+    font-family: ui-monospace, 'SF Mono', 'Fira Code', monospace;
   }
 
   .ft-peek-item {

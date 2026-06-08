@@ -205,23 +205,57 @@
     left: 12px;
     z-index: 150;
     background: #fff;
-    border: 1.5px solid #e8e4de;
-    border-radius: 10px;
+    border: 1.5px solid #e0dcd6;
+    border-radius: 12px;
     padding: 0;
     cursor: pointer;
     width: 44px;
     height: 44px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0,0,0,0.06);
+    transition: background 0.18s, border-color 0.18s, box-shadow 0.18s;
+  }
+
+  .ls-hamburger:hover {
+    background: #f5f2ee;
+    border-color: #ccc8c2;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .ls-hamburger:active {
+    background: #ede9e3;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  /* アクティブ（サイドバーオープン）時 */
+  .ls-hamburger--open {
+    background: #f0ece6;
+    border-color: #c8c2bb;
   }
 
   .ls-hamburger span {
     display: block;
-    width: 20px;
+    width: 22px;
     height: 2px;
     background: #2d2926;
     border-radius: 2px;
-    transition: all 0.22s ease;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.25s ease,
+                width 0.25s ease;
     transform-origin: center;
+  }
+
+  /* ×アニメーション: サイドバーオープン時 */
+  .ls-hamburger--open span:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+  }
+
+  .ls-hamburger--open span:nth-child(2) {
+    opacity: 0;
+    width: 0;
+  }
+
+  .ls-hamburger--open span:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
   }
 
   /* Backdrop overlay */
@@ -265,5 +299,12 @@
 
   .ls-clock {
     font-size: 28px;
+  }
+
+  /* タッチターゲット: ナビアイコンボタン */
+  .ls-nav-icon {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
   }
 }

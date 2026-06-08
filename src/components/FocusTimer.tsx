@@ -51,6 +51,7 @@ export default function FocusTimer({
   const [mobileExpanded, setMobileExpanded] = useState(false);
   const [showGcalSetup, setShowGcalSetup] = useState(false);
   const touchStartY = useRef<number | null>(null);
+  const touchStartTime = useRef<number>(0);
 
   const r = 70, cx = 80, cy = 80;
   const circumference = 2 * Math.PI * r;
@@ -61,13 +62,16 @@ export default function FocusTimer({
 
   function handleTouchStart(e: React.TouchEvent) {
     touchStartY.current = e.touches[0].clientY;
+    touchStartTime.current = Date.now();
   }
 
   function handleTouchEnd(e: React.TouchEvent) {
     if (touchStartY.current === null) return;
     const dy = e.changedTouches[0].clientY - touchStartY.current;
-    if (dy < -40) setMobileExpanded(true);
-    if (dy > 40)  setMobileExpanded(false);
+    const dt = Date.now() - touchStartTime.current;
+    // スワイプ判定：50px以上 かつ 500ms未満
+    if (dy < -50 && dt < 500) setMobileExpanded(true);
+    if (dy > 50  && dt < 500) setMobileExpanded(false);
     touchStartY.current = null;
   }
 
@@ -81,14 +85,20 @@ export default function FocusTimer({
   }
 
   return (
-    <aside
-      className={`ft-root${mobileExpanded ? ' ft-root--expanded' : ''}`}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-    >
+    <>
+      {/* モバイル展開時バックドロップ */}
+      {mobileExpanded && (
+        <div className="ft-backdrop" onClick={() => setMobileExpanded(false)} />
+      )}
+
+      <aside
+        className={`ft-root${mobileExpanded ? ' ft-root--expanded' : ''}`}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
       {/* ── Peek bar (visible on mobile/tablet when collapsed) ── */}
-      <div className="ft-peek" onClick={handlePeekClick}>
-        <div className="ft-drag-handle" />
+      <div className="ft-peek">
+        <div className="ft-drag-handle" onClick={handlePeekClick} />
         <div className="ft-peek-row">
           <span className="ft-peek-time">{formatTime(elapsed)}</span>
           {activeItemName ? (
@@ -100,6 +110,7 @@ export default function FocusTimer({
             <span className="ft-peek-hint">タップして開く</span>
           )}
           <button
+            type="button"
             className="ft-peek-btn"
             style={status === 'running' ? { background: arcColor } : undefined}
             onClick={handleStartPause}
@@ -163,6 +174,7 @@ export default function FocusTimer({
 
         <div className="ft-controls">
           <button
+            type="button"
             className="ft-btn-start"
             style={status === 'running' ? { background: arcColor } : undefined}
             onClick={status === 'running' ? onPause : onStart}
@@ -184,7 +196,7 @@ export default function FocusTimer({
               </>
             )}
           </button>
-          <button className="ft-btn-reset" onClick={onReset} title="Stop & save">
+          <button type="button" className="ft-btn-reset" onClick={onReset} title="Stop & save">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
               stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
             >
@@ -267,6 +279,7 @@ export default function FocusTimer({
               </span>
             ) : (
               <button
+                type="button"
                 className="ft-gcal-toggle"
                 onClick={() => setShowGcalSetup(v => !v)}
               >
@@ -280,7 +293,7 @@ export default function FocusTimer({
               <p className="ft-gcal-desc">
                 セッション終了時に自動でカレンダーに追加されます
               </p>
-              <button className="ft-gcal-disconnect" onClick={onGcalDisconnect}>
+              <button type="button" className="ft-gcal-disconnect" onClick={onGcalDisconnect}>
                 連携を解除
               </button>
             </div>
@@ -300,6 +313,7 @@ export default function FocusTimer({
                 onChange={e => onGcalClientIdChange(e.target.value)}
               />
               <button
+                type="button"
                 className="ft-gcal-connect-btn"
                 onClick={onGcalConnect}
                 disabled={!gcalClientId.trim()}
@@ -315,5 +329,6 @@ export default function FocusTimer({
         </div>
       </div>
     </aside>
+    </>
   );
 }

@@ -63,7 +63,7 @@ export default function ToDoList({
           <span className="tl-title">To Do List</span>
           <span className="tl-count">{completedCount}/{tasks.length}</span>
         </div>
-        <button className="tl-add-btn" onClick={() => setShowModal(true)}>
+        <button type="button" className="tl-add-btn" onClick={() => setShowModal(true)}>
           <span>+</span> Add Task
         </button>
       </div>
@@ -89,6 +89,7 @@ export default function ToDoList({
 
                 {/* Checkbox */}
                 <button
+                  type="button"
                   className="tl-checkbox"
                   onClick={e => { e.stopPropagation(); onToggle(task.id); }}
                 >
@@ -127,6 +128,7 @@ export default function ToDoList({
 
                 {/* Star */}
                 <button
+                  type="button"
                   className={`tl-star${task.starred ? ' tl-star--filled' : ''}`}
                   onClick={e => { e.stopPropagation(); onStar(task.id); }}
                 >
@@ -167,7 +169,7 @@ export default function ToDoList({
           style={{ top: contextMenu.y, left: contextMenu.x }}
           onClick={e => e.stopPropagation()}
         >
-          <button className="tl-context-delete" onClick={() => { onRemove(contextMenu.id); setContextMenu(null); }}>
+          <button type="button" className="tl-context-delete" onClick={() => { onRemove(contextMenu.id); setContextMenu(null); }}>
             Remove task
           </button>
         </div>

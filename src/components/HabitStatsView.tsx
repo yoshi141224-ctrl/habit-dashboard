@@ -269,6 +269,7 @@ export default function HabitStatsView({ habits, completions, timeLogs = {} }: P
       <div className="hsv-type-toggle">
         {(['達成率', '時間'] as ChartType[]).map(t => (
           <button
+            type="button"
             key={t}
             className={`hsv-type-btn${chartType === t ? ' hsv-type-btn--active' : ''}`}
             onClick={() => setChartType(t)}
@@ -282,6 +283,7 @@ export default function HabitStatsView({ habits, completions, timeLogs = {} }: P
       <div className="hsv-tabs">
         {(['1日','1週','1ヶ月','3ヶ月','半年','1年'] as Period[]).map(p => (
           <button
+            type="button"
             key={p}
             className={`hsv-tab${period === p ? ' hsv-tab--active' : ''}`}
             onClick={() => setPeriod(p)}

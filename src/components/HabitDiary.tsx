@@ -97,11 +97,11 @@ export default function HabitDiary({
           <span className="hd-title">Habit Diary</span>
         </div>
         <div className="hd-date-nav">
-          <button className="hd-nav-btn" onClick={() => onNavigate(-1)}>&#8249;</button>
+          <button type="button" className="hd-nav-btn" onClick={() => onNavigate(-1)}>&#8249;</button>
           <span className="hd-date-label">{formatDate(selectedDate)}</span>
-          <button className="hd-nav-btn" onClick={() => onNavigate(1)}>&#8250;</button>
+          <button type="button" className="hd-nav-btn" onClick={() => onNavigate(1)}>&#8250;</button>
         </div>
-        <button className="hd-add-btn-header" onClick={() => setShowModal(true)}>
+        <button type="button" className="hd-add-btn-header" onClick={() => setShowModal(true)}>
           <span>+</span> Add Habit
         </button>
       </div>
@@ -124,6 +124,7 @@ export default function HabitDiary({
             >
               {/* Checkbox — toggle completion */}
               <button
+                type="button"
                 className="hd-checkbox-btn"
                 onClick={e => { e.stopPropagation(); onToggle(habit.id, selectedDate); }}
               >
@@ -224,7 +225,7 @@ export default function HabitDiary({
           style={{ top: contextMenu.y, left: contextMenu.x }}
           onClick={e => e.stopPropagation()}
         >
-          <button className="hd-context-item hd-context-delete" onClick={() => { onRemoveHabit(contextMenu.habitId); setContextMenu(null); }}>
+          <button type="button" className="hd-context-item hd-context-delete" onClick={() => { onRemoveHabit(contextMenu.habitId); setContextMenu(null); }}>
             Remove habit
           </button>
         </div>
