@@ -336,11 +336,12 @@ export default function HabitDiary({
                   <span className="hd-running-dot" style={{ background: color }} />
                 )}
 
-                {/* Expand toggle — always shown on every habit */}
+                {/* Expand toggle — always shown on every habit (▼ open / ▲ close) */}
                 <button
                   type="button"
                   className={`hd-expand-btn${isExpanded ? ' hd-expand-btn--open' : ''}`}
                   onClick={e => { e.stopPropagation(); toggleExpand(habit.id); }}
+                  title={isExpanded ? 'サブ習慣を閉じる' : 'サブ習慣を表示・追加'}
                   aria-label={isExpanded ? '折りたたむ' : 'サブ習慣を表示・追加'}
                 >
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

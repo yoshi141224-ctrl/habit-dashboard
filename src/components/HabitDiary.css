@@ -221,23 +221,36 @@
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--tx-3, #978780);
+  color: var(--tx-2, #574940);  /* slightly darker so it's always visible */
   padding: 4px;
   border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: color 0.15s;
+  transition: color 0.15s, background 0.15s;
   margin-top: 1px;
+  min-width: 24px;
+  min-height: 24px;
 }
 
 .hd-expand-btn svg {
   transition: transform 0.2s;
 }
 
-.hd-expand-btn:hover { color: var(--tx-1, #17120B); }
+.hd-expand-btn:hover {
+  color: var(--tx-1, #17120B);
+  background: var(--bd-3, #EAE4DC);
+}
 .hd-expand-btn--open svg { transform: rotate(180deg); }
+
+/* Larger tap target on mobile */
+@media (max-width: 1023px) {
+  .hd-expand-btn {
+    min-width: 32px;
+    min-height: 32px;
+  }
+}
 
 /* ── Kebab menu ── */
 /* NOT absolutely positioned — flows in the flex row after the expand button
