@@ -240,10 +240,9 @@
 .hd-expand-btn--open svg { transform: rotate(180deg); }
 
 /* ── Kebab menu ── */
+/* NOT absolutely positioned — flows in the flex row after the expand button
+   so it never overlaps the ▼ expand toggle */
 .hd-kebab-btn {
-  position: absolute;
-  top: 7px;
-  right: 7px;
   background: none;
   border: none;
   cursor: pointer;
@@ -259,6 +258,8 @@
   min-width: 24px;
   min-height: 24px;
   touch-action: manipulation;
+  align-self: flex-start;
+  margin-top: 1px;
 }
 
 .hd-cell:hover .hd-kebab-btn { opacity: 1; }
