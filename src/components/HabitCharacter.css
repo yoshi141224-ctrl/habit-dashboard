@@ -11,16 +11,17 @@
 
 .hc-label {
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 700;
   margin-top: 2px;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
-.hc-label-ecstatic { color: #d4a76a; }
-.hc-label-happy    { color: #939b7e; }
-.hc-label-neutral  { color: #9a938c; }
-.hc-label-meh      { color: #b0a89e; }
-.hc-label-sad      { color: #7ba7bc; }
-.hc-label-crying   { color: #7ba7bc; }
+.hc-label-ecstatic { color: var(--gold, #B88A2A); }
+.hc-label-happy    { color: var(--success, #1E7A50); }
+.hc-label-neutral  { color: var(--tx-3, #978780); }
+.hc-label-meh      { color: var(--tx-4, #B4A89E); }
+.hc-label-sad      { color: var(--accent, #2B52D6); }
+.hc-label-crying   { color: var(--accent, #2B52D6); }
 
 /* ================================================================
    ECSTATIC (90-100%): wild bouncing + wiggle

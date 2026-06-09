@@ -2,7 +2,6 @@
    MobileView — phone-frame wrapper + mobile layout overrides
    ============================================================ */
 
-/* Outer centering wrapper */
 .mv-outer {
   display: flex;
   justify-content: center;
@@ -11,21 +10,19 @@
   min-height: 80vh;
 }
 
-/* Phone frame */
 .mv-phone {
   width: 390px;
   flex-shrink: 0;
-  border: 12px solid #1a1a1a;
+  border: 11px solid #1A1410;
   border-radius: 44px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  background: #f5f2ed;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.25);
+  background: var(--bg, #E5DFD5);
+  box-shadow: 0 24px 64px rgba(23,18,11,0.28), 0 0 0 1px rgba(255,255,255,0.05);
   max-height: 780px;
 }
 
-/* Inner screen (flex column, clips overflow) */
 .mv-screen {
   flex: 1;
   overflow: hidden;
@@ -40,9 +37,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
-  background: #1a1a1a;
-  color: white;
+  padding: 0 18px;
+  background: var(--primary, #1C1410);
+  color: var(--surface, #FDFBF8);
   font-size: 13px;
   font-weight: 600;
   flex-shrink: 0;
@@ -58,6 +55,7 @@
 .mv-topbar-title {
   font-size: 14px;
   font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 /* ── Scrollable content area ── */
@@ -68,7 +66,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  background: #f5f2ed;
+  background: var(--bg, #E5DFD5);
   min-height: 0;
   -webkit-overflow-scrolling: touch;
 }
@@ -76,8 +74,8 @@
 /* ── Bottom navigation bar ── */
 .mv-bottom-nav {
   height: 60px;
-  background: white;
-  border-top: 1px solid #e8e4de;
+  background: var(--surface, #FDFBF8);
+  border-top: 1px solid var(--bd-3, #EAE4DC);
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   flex-shrink: 0;
@@ -92,27 +90,21 @@
   background: none;
   border: none;
   cursor: pointer;
-  color: #9a938c;
+  color: var(--tx-3, #978780);
   font-size: 9px;
   font-weight: 600;
   padding: 6px 0;
   transition: color 0.12s;
   font-family: inherit;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-.mv-nav-btn:active {
-  opacity: 0.7;
-}
+.mv-nav-btn:active { opacity: 0.7; }
 
-.mv-nav-btn--active {
-  color: #2d2926;
-}
+.mv-nav-btn--active { color: var(--tx-1, #17120B); }
 
-.mv-nav-btn svg {
-  width: 20px;
-  height: 20px;
-}
+.mv-nav-btn svg { width: 20px; height: 20px; }
 
 /* ============================================================
    Score bar (Home tab)
@@ -121,40 +113,43 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: white;
-  border-radius: 10px;
+  background: var(--surface, #FDFBF8);
+  border-radius: var(--r-md, 12px);
   padding: 10px 12px;
   flex-shrink: 0;
+  border: 1px solid var(--bd-3, #EAE4DC);
 }
 
 .mv-score-pct {
   font-size: 20px;
   font-weight: 800;
-  color: #2d2926;
+  color: var(--tx-1, #17120B);
   min-width: 48px;
   font-variant-numeric: tabular-nums;
 }
 
 .mv-score-track {
   flex: 1;
-  height: 6px;
-  background: #f0ece6;
-  border-radius: 3px;
+  height: 4px;
+  background: var(--bd-2, #DCD5CC);
+  border-radius: 2px;
   overflow: hidden;
 }
 
 .mv-score-fill {
   height: 100%;
-  background: #2d2926;
-  border-radius: 3px;
-  transition: width 0.4s;
+  background: var(--primary, #1C1410);
+  border-radius: 2px;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .mv-score-label {
-  font-size: 11px;
-  color: #9a938c;
+  font-size: 10.5px;
+  color: var(--tx-3, #978780);
   white-space: nowrap;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 /* ============================================================
@@ -166,16 +161,17 @@
   align-items: center;
   gap: 12px;
   padding: 16px;
-  background: white;
-  border-radius: 14px;
+  background: var(--surface, #FDFBF8);
+  border-radius: var(--r-md, 12px);
+  border: 1px solid var(--bd-3, #EAE4DC);
 }
 
 .mv-timer-label {
-  font-size: 11px;
-  color: #9a938c;
-  font-weight: 600;
+  font-size: 10px;
+  color: var(--tx-3, #978780);
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   margin: 0;
   text-align: center;
   max-width: 280px;
@@ -186,13 +182,11 @@
 
 .mv-timer-total {
   font-size: 12px;
-  color: #9a938c;
+  color: var(--tx-3, #978780);
   margin: 0;
 }
 
-.mv-timer-total strong {
-  color: #2d2926;
-}
+.mv-timer-total strong { color: var(--tx-1, #17120B); }
 
 .mv-timer-btns {
   display: flex;
@@ -203,52 +197,53 @@
   min-height: 48px;
   min-width: 90px;
   border: none;
-  border-radius: 12px;
+  border-radius: var(--r-md, 12px);
   font-family: inherit;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   transition: opacity 0.12s, transform 0.1s;
 }
 
-.mv-timer-btn:active {
-  opacity: 0.75;
-  transform: scale(0.97);
-}
+.mv-timer-btn:active { opacity: 0.75; transform: scale(0.97); }
 
 .mv-timer-btn--start {
-  background: #2d2926;
-  color: white;
+  background: var(--primary, #1C1410);
+  color: var(--surface, #FDFBF8);
+  box-shadow: 0 2px 8px rgba(28,20,16,0.2);
 }
 
 .mv-timer-btn--pause {
-  background: #e8e4de;
-  color: #2d2926;
+  background: var(--surface-2, #F2EDE5);
+  color: var(--tx-1, #17120B);
+  border: 1px solid var(--bd-2, #DCD5CC);
 }
 
 .mv-timer-btn--reset {
-  background: #f5f2ed;
-  color: #9a938c;
-  border: 1.5px solid #e8e4de;
+  background: var(--surface-2, #F2EDE5);
+  color: var(--tx-3, #978780);
+  border: 1px solid var(--bd-2, #DCD5CC);
 }
 
 .mv-timer-notes {
   width: 100%;
   box-sizing: border-box;
   resize: none;
-  border: 1.5px solid #e8e4de;
-  border-radius: 8px;
-  padding: 8px;
+  border: 1px solid var(--bd-2, #DCD5CC);
+  border-radius: var(--r-sm, 8px);
+  padding: 8px 10px;
   font-family: inherit;
   font-size: 12px;
-  background: #faf8f5;
-  color: #2d2926;
+  background: var(--surface-2, #F2EDE5);
+  color: var(--tx-1, #17120B);
   outline: none;
   line-height: 1.5;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .mv-timer-notes:focus {
-  border-color: #2d2926;
+  border-color: var(--accent, #2B52D6);
+  box-shadow: 0 0 0 3px rgba(43,82,214,0.08);
 }
 
 .mv-timer-sessions {
@@ -261,9 +256,9 @@
 .mv-timer-sessions-title {
   font-size: 10px;
   font-weight: 700;
-  color: #9a938c;
+  color: var(--tx-3, #978780);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   margin: 0 0 2px 0;
 }
 
@@ -272,51 +267,31 @@
   align-items: center;
   gap: 6px;
   font-size: 11px;
-  color: #6e6762;
+  color: var(--tx-2, #574940);
 }
 
 .mv-timer-session-dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   flex-shrink: 0;
 }
 
-.mv-timer-session-time {
-  flex: 1;
-}
-
-.mv-timer-session-dur {
-  font-weight: 700;
-  color: #2d2926;
-}
+.mv-timer-session-time { flex: 1; }
+.mv-timer-session-dur { font-weight: 700; color: var(--tx-1, #17120B); }
 
 /* ============================================================
    Overrides for existing components inside .mv-phone
    ============================================================ */
-
-/* Charts: remove outer margin so they fit the phone width */
 .mv-phone .sbc-card,
-.mv-phone .bc-card {
-  margin: 0;
-}
+.mv-phone .bc-card { margin: 0; }
 
-/* HabitDiary grid: 2 columns on phone */
-.mv-phone .hd-grid {
-  grid-template-columns: 1fr 1fr;
-}
+.mv-phone .hd-grid { grid-template-columns: 1fr 1fr; }
 
-/* CompletedTasksLog: remove card shadow for cleaner look */
-.mv-phone .ctl-card {
-  box-shadow: none;
-}
+.mv-phone .ctl-card { box-shadow: none; }
 
-/* General card spacing reductions inside phone */
-.mv-phone .card {
-  border-radius: 12px;
-}
+.mv-phone .card { border-radius: var(--r-md, 12px); }
 
-/* Ensure cards don't overflow horizontally */
 .mv-phone .hd-card,
 .mv-phone .tl-card,
 .mv-phone .sbc-card,
