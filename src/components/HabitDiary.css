@@ -333,6 +333,287 @@
 .hd-edit-name   { font-size: 12px; font-weight: 600; line-height: 1.25; }
 .hd-edit-detail { font-size: 10px; color: var(--tx-3, #978780); line-height: 1.3; }
 
+/* ── Cell restructure: column layout ── */
+.hd-cell {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+
+.hd-cell-main {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+/* ── Sub-habit expand toggle ── */
+.hd-expand-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--tx-3, #978780);
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: color 0.15s, transform 0.2s;
+  margin-top: 2px;
+}
+
+.hd-expand-btn:hover { color: var(--tx-1, #17120B); }
+.hd-expand-btn--open svg { transform: rotate(180deg); }
+
+/* ── Sub-habits container ── */
+.hd-sub-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--bd-3, #EAE4DC);
+  padding-left: 4px;
+}
+
+/* ── Single sub-habit row ── */
+.hd-sub-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 4px 4px 0;
+  border-radius: 6px;
+  transition: background 0.12s;
+  flex-wrap: wrap;
+  position: relative;
+}
+
+.hd-sub-row:hover { background: var(--surface-2, #F2EDE5); }
+
+.hd-sub-row--done .hd-sub-name {
+  text-decoration: line-through;
+  text-decoration-color: var(--bd-1, #CCC4BA);
+  color: var(--tx-4, #B4A89E);
+}
+
+.hd-sub-row--active {
+  background: rgba(0,0,0,0.03);
+}
+
+/* Sub checkbox */
+.hd-sub-checkbox {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  transition: transform 0.12s;
+}
+
+.hd-sub-checkbox:active { transform: scale(0.88); }
+
+/* Sub emoji */
+.hd-sub-emoji {
+  font-size: 13px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* Sub name */
+.hd-sub-name {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--tx-1, #17120B);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.2s;
+  cursor: default;
+}
+
+/* Sub spent badge */
+.hd-sub-spent {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 5px;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sub running dot */
+.hd-sub-running {
+  width: 5px;
+  height: 5px;
+}
+
+/* Sub timer select button */
+.hd-sub-timer-btn {
+  background: none;
+  border: 1px solid var(--bd-2, #DCD5CC);
+  border-radius: 5px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--tx-3, #978780);
+  flex-shrink: 0;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+  padding: 0;
+}
+
+.hd-sub-timer-btn:hover {
+  border-color: var(--tx-2, #574940);
+  color: var(--tx-1, #17120B);
+  background: var(--surface-2, #F2EDE5);
+}
+
+.hd-sub-timer-btn--active {
+  border-radius: 50%;
+}
+
+/* Sub session log */
+.hd-sub-sessions {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-left: 26px;
+  padding-top: 2px;
+}
+
+/* Sub inline edit */
+.hd-sub-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.hd-sub-edit-emoji {
+  width: 28px;
+  text-align: center;
+  border: none;
+  border-bottom: 1.5px solid var(--accent, #2B52D6);
+  background: transparent;
+  outline: none;
+  font-size: 13px;
+  padding: 1px 2px;
+  flex-shrink: 0;
+}
+
+.hd-sub-edit-name {
+  flex: 1;
+  border: none;
+  border-bottom: 1.5px solid var(--accent, #2B52D6);
+  background: transparent;
+  outline: none;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--tx-1, #17120B);
+  padding: 1px 2px;
+  font-family: inherit;
+  min-width: 0;
+}
+
+/* ── Inline Add Form ── */
+.hd-sub-add-form {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0 2px;
+}
+
+.hd-sub-add-emoji {
+  width: 28px;
+  text-align: center;
+  padding: 4px 2px;
+  border: 1px solid var(--bd-2, #DCD5CC);
+  border-radius: 6px;
+  background: var(--surface, #FDFBF8);
+  font-size: 13px;
+  outline: none;
+  flex-shrink: 0;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+
+.hd-sub-add-emoji:focus { border-color: var(--accent, #2B52D6); }
+
+.hd-sub-add-name {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--bd-2, #DCD5CC);
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--tx-1, #17120B);
+  background: var(--surface, #FDFBF8);
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+
+.hd-sub-add-name:focus { border-color: var(--accent, #2B52D6); }
+
+.hd-sub-add-submit {
+  background: var(--primary, #1C1410);
+  color: var(--surface, #FDFBF8);
+  border: none;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  font-family: inherit;
+  transition: opacity 0.15s;
+}
+
+.hd-sub-add-submit:disabled { opacity: 0.35; cursor: default; }
+.hd-sub-add-submit:not(:disabled):hover { opacity: 0.8; }
+
+.hd-sub-add-cancel {
+  background: none;
+  border: none;
+  color: var(--tx-3, #978780);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+
+.hd-sub-add-cancel:hover { color: var(--tx-1, #17120B); }
+
+/* ── "Add sub-habit" button ── */
+.hd-sub-add-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 10px;
+  color: var(--tx-4, #B4A89E);
+  padding: 3px 2px;
+  border-radius: 5px;
+  font-family: inherit;
+  transition: color 0.15s;
+  align-self: flex-start;
+}
+
+.hd-sub-add-btn:hover { color: var(--tx-2, #574940); }
+
 /* ── Responsive ── */
 @media (max-width: 767px) {
   .hd-card { overflow: hidden; max-width: 100%; }
@@ -372,4 +653,20 @@
     min-height: 44px;
     padding: 0 14px;
   }
+}
+
+/* ── Mobile sub-habit adjustments ── */
+@media (max-width: 767px) {
+  .hd-sub-timer-btn {
+    width: 30px;
+    height: 30px;
+  }
+
+  .hd-sub-checkbox {
+    min-width: 30px;
+    min-height: 30px;
+    justify-content: center;
+  }
+
+  .hd-sub-name { font-size: 11px; }
 }

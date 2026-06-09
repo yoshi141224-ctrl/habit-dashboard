@@ -1,9 +1,20 @@
+export interface SubHabit {
+  id: string;
+  name: string;
+  emoji: string; // empty string if no emoji
+}
+
 export interface Habit {
   id: string;
   name: string;
   detail: string;
   createdAt: string;
+  subHabits?: SubHabit[];
 }
+
+// date → habitId → subHabitId[]
+export type SubCompletionMap = Record<string, Record<string, string[]>>;
+export const LS_SUB_COMPLETIONS = 'hd_sub_completions';
 
 export type CompletionMap = Record<string, string[]>;
 

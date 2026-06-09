@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import type { Habit, CompletionMap, BarChartDatum } from '../types';
-import { LS_HABITS, LS_COMPLETIONS } from '../types';
+import type { Habit, CompletionMap, BarChartDatum, SubCompletionMap } from '../types';
+import { LS_HABITS, LS_COMPLETIONS, LS_SUB_COMPLETIONS } from '../types';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -63,6 +63,7 @@ export function useHabits() {
   const [completions, setCompletions] = useState<CompletionMap>(() =>
     load(LS_COMPLETIONS, generateSeedCompletions(defaultHabits))
   );
+  const [subCompletions, setSubCompletions] = useState<SubCompletionMap>(() => load(LS_SUB_COMPLETIONS, {}));
   const [selectedDate, setSelectedDate] = useState<string>(TODAY());
 
   useEffect(() => {
@@ -72,6 +73,10 @@ export function useHabits() {
   useEffect(() => {
     localStorage.setItem(LS_COMPLETIONS, JSON.stringify(completions));
   }, [completions]);
+
+  useEffect(() => {
+    localStorage.setItem(LS_SUB_COMPLETIONS, JSON.stringify(subCompletions));
+  }, [subCompletions]);
 
   const todayCompletions = completions[selectedDate] ?? [];
 
@@ -148,6 +153,64 @@ export function useHabits() {
       });
       return next;
     });
+    setSubCompletions(prev => {
+      const next = { ...prev };
+      Object.keys(next).forEach(date => {
+        const byDate = { ...next[date] };
+        delete byDate[habitId];
+        next[date] = byDate;
+      });
+      return next;
+    });
+  }
+
+  function addSubHabit(habitId: string, name: string, emoji: string) {
+    setHabits(prev => prev.map(h =>
+      h.id === habitId
+        ? { ...h, subHabits: [...(h.subHabits ?? []), { id: crypto.randomUUID(), name, emoji }] }
+        : h
+    ));
+  }
+
+  function removeSubHabit(habitId: string, subId: string) {
+    setHabits(prev => prev.map(h =>
+      h.id === habitId
+        ? { ...h, subHabits: (h.subHabits ?? []).filter(s => s.id !== subId) }
+        : h
+    ));
+    // Clean up completions for this sub-habit
+    setSubCompletions(prev => {
+      const next = { ...prev };
+      Object.keys(next).forEach(date => {
+        const byHabit = { ...next[date] };
+        if (byHabit[habitId]) {
+          byHabit[habitId] = byHabit[habitId].filter(id => id !== subId);
+        }
+        next[date] = byHabit;
+      });
+      return next;
+    });
+  }
+
+  function editSubHabit(habitId: string, subId: string, name: string, emoji: string) {
+    setHabits(prev => prev.map(h =>
+      h.id === habitId
+        ? { ...h, subHabits: (h.subHabits ?? []).map(s =>
+            s.id === subId ? { ...s, name: name.trim() || s.name, emoji } : s
+          )}
+        : h
+    ));
+  }
+
+  function toggleSubHabit(habitId: string, subId: string, date: string = selectedDate) {
+    setSubCompletions(prev => {
+      const byDate = prev[date] ?? {};
+      const byHabit = byDate[habitId] ?? [];
+      const updated = byHabit.includes(subId)
+        ? byHabit.filter(id => id !== subId)
+        : [...byHabit, subId];
+      return { ...prev, [date]: { ...byDate, [habitId]: updated } };
+    });
   }
 
   function editHabit(habitId: string, name: string, detail: string) {
@@ -171,6 +234,7 @@ export function useHabits() {
   return {
     habits,
     completions,
+    subCompletions,
     selectedDate,
     todayCompletions,
     completionRate,
@@ -180,6 +244,10 @@ export function useHabits() {
     addHabit,
     removeHabit,
     editHabit,
+    addSubHabit,
+    removeSubHabit,
+    editSubHabit,
+    toggleSubHabit,
     setSelectedDate,
     navigateDate,
   };

@@ -3,6 +3,7 @@ import './MobileView.css';
 import type {
   Habit,
   CompletionMap,
+  SubCompletionMap,
   FocusSession,
   Task,
   CompletedTask,
@@ -21,6 +22,7 @@ interface Props {
   // Habits
   habits: Habit[];
   completions: CompletionMap;
+  subCompletions: SubCompletionMap;
   selectedDate: string;
   completionRate: number;
   todayLogs: Record<string, number>;
@@ -29,10 +31,14 @@ interface Props {
   activeItemId: string | null;
   timerRunning: boolean;
   onToggleHabit: (id: string, date: string) => void;
+  onToggleSub: (habitId: string, subId: string, date: string) => void;
   onNavigateDate: (delta: -1 | 1) => void;
   onAddHabit: (name: string, detail: string) => void;
   onRemoveHabit: (id: string) => void;
   onEditHabit: (id: string, name: string, detail: string) => void;
+  onAddSubHabit: (habitId: string, name: string, emoji: string) => void;
+  onRemoveSubHabit: (habitId: string, subId: string) => void;
+  onEditSubHabit: (habitId: string, subId: string, name: string, emoji: string) => void;
   onSelectItem: (id: string) => void;
   // Tasks
   tasks: Task[];
@@ -75,6 +81,7 @@ function getCurrentTimeString(): string {
 export default function MobileView({
   habits,
   completions,
+  subCompletions,
   selectedDate,
   completionRate,
   todayLogs,
@@ -83,10 +90,14 @@ export default function MobileView({
   activeItemId,
   timerRunning,
   onToggleHabit,
+  onToggleSub,
   onNavigateDate,
   onAddHabit,
   onRemoveHabit,
   onEditHabit,
+  onAddSubHabit,
+  onRemoveSubHabit,
+  onEditSubHabit,
   onSelectItem,
   tasks,
   pendingCompletions,
@@ -219,6 +230,7 @@ export default function MobileView({
                 <HabitDiary
                   habits={habits}
                   completions={completions}
+                  subCompletions={subCompletions}
                   selectedDate={selectedDate}
                   timeLogs={todayLogs}
                   sessions={sessions}
@@ -226,11 +238,15 @@ export default function MobileView({
                   timerRunning={timerRunning}
                   colorMap={colorMap}
                   onToggle={onToggleHabit}
+                  onToggleSub={onToggleSub}
                   onNavigate={onNavigateDate}
                   onSelect={onSelectItem}
                   onAddHabit={onAddHabit}
                   onRemoveHabit={onRemoveHabit}
                   onEditHabit={onEditHabit}
+                  onAddSubHabit={onAddSubHabit}
+                  onRemoveSubHabit={onRemoveSubHabit}
+                  onEditSubHabit={onEditSubHabit}
                 />
 
                 <ToDoList

@@ -32,7 +32,10 @@ export default function App() {
   // Assign colors: habits → indices 0..n-1, active tasks → n..n+m-1, completed tasks → same slot by ID
   const itemColorMap = useMemo(() => {
     const map: Record<string, string> = {};
-    habits.habits.forEach((h, i) => { map[h.id] = ITEM_COLORS[i % ITEM_COLORS.length]; });
+    habits.habits.forEach((h, i) => {
+      map[h.id] = ITEM_COLORS[i % ITEM_COLORS.length];
+      h.subHabits?.forEach(sh => { map[sh.id] = ITEM_COLORS[i % ITEM_COLORS.length]; });
+    });
     tasks.tasks.forEach((t, i) => { map[t.id] = ITEM_COLORS[(habits.habits.length + i) % ITEM_COLORS.length]; });
     // Completed tasks: assign colors not already in map (stable by order they appear in completedTasks)
     let colorOffset = habits.habits.length + tasks.tasks.length;
@@ -71,6 +74,11 @@ export default function App() {
     if (!activeTimerItemId) return null;
     const habit = habits.habits.find(h => h.id === activeTimerItemId);
     if (habit) return habit.name;
+    // Check sub-habits
+    for (const h of habits.habits) {
+      const sh = h.subHabits?.find(s => s.id === activeTimerItemId);
+      if (sh) return `${h.name} › ${sh.emoji ? sh.emoji + ' ' : ''}${sh.name}`;
+    }
     const task = tasks.tasks.find(t => t.id === activeTimerItemId);
     if (task) return task.title;
     const done = tasks.completedTasks.find(t => t.id === activeTimerItemId);
@@ -237,6 +245,7 @@ export default function App() {
             <HabitDiary
               habits={habits.habits}
               completions={habits.completions}
+              subCompletions={habits.subCompletions}
               selectedDate={habits.selectedDate}
               timeLogs={todayLogs}
               sessions={timer.todaySessions}
@@ -244,11 +253,15 @@ export default function App() {
               timerRunning={timer.status === 'running'}
               colorMap={itemColorMap}
               onToggle={habits.toggleHabit}
+              onToggleSub={habits.toggleSubHabit}
               onNavigate={habits.navigateDate}
               onSelect={selectItem}
               onAddHabit={habits.addHabit}
               onRemoveHabit={habits.removeHabit}
               onEditHabit={habits.editHabit}
+              onAddSubHabit={habits.addSubHabit}
+              onRemoveSubHabit={habits.removeSubHabit}
+              onEditSubHabit={habits.editSubHabit}
             />
 
             <ToDoList
