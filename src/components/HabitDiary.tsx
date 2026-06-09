@@ -54,12 +54,12 @@ function formatMinutes(seconds: number): string {
   return `${Math.floor(m / 60)}h ${m % 60}m`;
 }
 
-// EditState: parent habit fields
-type EditField = 'name' | 'detail' | 'emoji';
+// EditState: parent habit fields (name or detail only — no emoji)
+type EditField = 'name' | 'detail';
 type EditState = { habitId: string; field: EditField; value: string } | null;
 
-// SubEditState: sub-habit fields
-type SubEditState = { habitId: string; subId: string; name: string; emoji: string } | null;
+// SubEditState: sub-habit name only
+type SubEditState = { habitId: string; subId: string; name: string } | null;
 
 export default function HabitDiary({
   habits, completions, subCompletions, selectedDate, timeLogs, sessions,
@@ -77,7 +77,6 @@ export default function HabitDiary({
   // Sub-habit inline add form
   const [addingSubFor, setAddingSubFor] = useState<string | null>(null);
   const [newSubName, setNewSubName] = useState('');
-  const [newSubEmoji, setNewSubEmoji] = useState('');
   // Sub-habit context menu
   const [subContextMenu, setSubContextMenu] = useState<{ habitId: string; subId: string; x: number; y: number } | null>(null);
   // Sub-habit inline edit
@@ -97,9 +96,8 @@ export default function HabitDiary({
     e.preventDefault();
     e.stopPropagation();
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    // Clamp so menu stays in viewport
     const x = Math.min(rect.left, window.innerWidth - 200);
-    const y = Math.min(rect.bottom + 4, window.innerHeight - 180);
+    const y = Math.min(rect.bottom + 4, window.innerHeight - 160);
     setContextMenu({ habitId, x, y });
     setSubContextMenu(null);
   }
@@ -109,7 +107,7 @@ export default function HabitDiary({
     e.stopPropagation();
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const x = Math.min(rect.left, window.innerWidth - 180);
-    const y = Math.min(rect.bottom + 4, window.innerHeight - 120);
+    const y = Math.min(rect.bottom + 4, window.innerHeight - 100);
     setSubContextMenu({ habitId, subId, x, y });
     setContextMenu(null);
   }
@@ -126,12 +124,9 @@ export default function HabitDiary({
     const habit = habits.find(h => h.id === editState.habitId);
     if (!habit) { setEditState(null); return; }
     if (editState.field === 'name') {
-      onEditHabit(editState.habitId, editState.value.trim() || habit.name, habit.detail, habit.emoji ?? '');
-    } else if (editState.field === 'detail') {
-      onEditHabit(editState.habitId, habit.name, editState.value.trim(), habit.emoji ?? '');
+      onEditHabit(editState.habitId, editState.value.trim() || habit.name, habit.detail);
     } else {
-      // emoji
-      onEditHabit(editState.habitId, habit.name, habit.detail, editState.value.trim());
+      onEditHabit(editState.habitId, habit.name, editState.value.trim());
     }
     setEditState(null);
   }
@@ -142,9 +137,9 @@ export default function HabitDiary({
   }
 
   // Sub-habit inline edit
-  function startSubEdit(habitId: string, subId: string, name: string, emoji: string) {
+  function startSubEdit(habitId: string, subId: string, name: string) {
     subEditCancelRef.current = false;
-    setSubEditState({ habitId, subId, name, emoji });
+    setSubEditState({ habitId, subId, name });
     setSubContextMenu(null);
   }
 
@@ -153,7 +148,7 @@ export default function HabitDiary({
       setSubEditState(null);
       return;
     }
-    onEditSubHabit(subEditState.habitId, subEditState.subId, subEditState.name, subEditState.emoji);
+    onEditSubHabit(subEditState.habitId, subEditState.subId, subEditState.name, '');
     setSubEditState(null);
   }
 
@@ -171,9 +166,8 @@ export default function HabitDiary({
   function handleAddSub(habitId: string) {
     const trimName = newSubName.trim();
     if (!trimName) return;
-    onAddSubHabit(habitId, trimName, newSubEmoji.trim());
+    onAddSubHabit(habitId, trimName, '');
     setNewSubName('');
-    setNewSubEmoji('');
     setAddingSubFor(null);
   }
 
@@ -270,41 +264,21 @@ export default function HabitDiary({
                   className="hd-cell-text"
                   onClick={() => editState?.habitId !== habit.id && !timerRunning && onSelect(habit.id)}
                 >
-                  {/* Emoji — shown or editable */}
-                  <div className="hd-name-row">
-                    {editState?.habitId === habit.id && editState.field === 'emoji' ? (
-                      <input
-                        className="hd-emoji-input"
-                        value={editState.value}
-                        placeholder="🙂"
-                        autoFocus
-                        onChange={e => setEditState(prev => prev ? { ...prev, value: e.target.value } : null)}
-                        onBlur={commitEdit}
-                        onKeyDown={handleEditKeyDown}
-                        onClick={e => e.stopPropagation()}
-                      />
-                    ) : (
-                      habit.emoji
-                        ? <span className="hd-habit-emoji" onDoubleClick={e => startEdit(e, habit.id, 'emoji', habit.emoji ?? '')}>{habit.emoji}</span>
-                        : null
-                    )}
-
-                    {/* Name */}
-                    {editState?.habitId === habit.id && editState.field === 'name' ? (
-                      <input
-                        ref={inputRef}
-                        className="hd-edit-input hd-edit-name"
-                        value={editState.value}
-                        autoFocus
-                        onChange={e => setEditState(prev => prev ? { ...prev, value: e.target.value } : null)}
-                        onBlur={commitEdit}
-                        onKeyDown={handleEditKeyDown}
-                        onClick={e => e.stopPropagation()}
-                      />
-                    ) : (
-                      <p className="hd-habit-name" onDoubleClick={e => startEdit(e, habit.id, 'name', habit.name)}>{habit.name}</p>
-                    )}
-                  </div>
+                  {/* Name */}
+                  {editState?.habitId === habit.id && editState.field === 'name' ? (
+                    <input
+                      ref={inputRef}
+                      className="hd-edit-input hd-edit-name"
+                      value={editState.value}
+                      autoFocus
+                      onChange={e => setEditState(prev => prev ? { ...prev, value: e.target.value } : null)}
+                      onBlur={commitEdit}
+                      onKeyDown={handleEditKeyDown}
+                      onClick={e => e.stopPropagation()}
+                    />
+                  ) : (
+                    <p className="hd-habit-name" onDoubleClick={e => startEdit(e, habit.id, 'name', habit.name)}>{habit.name}</p>
+                  )}
 
                   {/* Detail */}
                   {editState?.habitId === habit.id && editState.field === 'detail' ? (
@@ -375,7 +349,7 @@ export default function HabitDiary({
               {/* ── Sub-habits section ── */}
               {isExpanded && (
                 <div className="hd-sub-list" onClick={e => e.stopPropagation()}>
-                  {subHabits.map(sh => {
+                  {subHabits.map((sh, idx) => {
                     const shDone = subDoneIds.includes(sh.id);
                     const shActive = activeItemId === sh.id;
                     const shSec = timeLogs[sh.id] ?? 0;
@@ -390,9 +364,9 @@ export default function HabitDiary({
                           'hd-sub-row',
                           shDone ? 'hd-sub-row--done' : '',
                           shActive ? 'hd-sub-row--active' : '',
+                          idx < subHabits.length - 1 ? 'hd-sub-row--divider' : '',
                         ].filter(Boolean).join(' ')}
                         onContextMenu={e => {
-                          // Stop propagation so parent cell's onContextMenu doesn't also fire
                           e.preventDefault();
                           e.stopPropagation();
                           setSubContextMenu({ habitId: habit.id, subId: sh.id, x: e.clientX, y: e.clientY });
@@ -406,25 +380,16 @@ export default function HabitDiary({
                           onClick={e => { e.stopPropagation(); onToggleSub(habit.id, sh.id, selectedDate); }}
                         >
                           {/* IMPORTANT: polyline always in DOM — opacity pattern for iOS WKWebView safety */}
-                          <svg width="20" height="20" viewBox="0 0 20 20">
-                            <circle cx="10" cy="10" r="9" fill={shDone ? color : 'none'} stroke={shDone ? color : '#ccc8c4'} strokeWidth="1.5"/>
-                            <polyline points="5.5,10 8.5,13 14.5,7" fill="none" stroke="#fff" strokeWidth="1.8"
+                          <svg width="22" height="22" viewBox="0 0 22 22">
+                            <circle cx="11" cy="11" r="9.5" fill={shDone ? color : 'none'} stroke={shDone ? color : '#ccc8c4'} strokeWidth="1.5"/>
+                            <polyline points="6,11 9.5,14.5 16,7.5" fill="none" stroke="#fff" strokeWidth="1.8"
                               strokeLinecap="round" strokeLinejoin="round" opacity={shDone ? 1 : 0}/>
                           </svg>
                         </button>
 
                         {/* ── Name / Edit mode ── */}
                         {isEditing ? (
-                          /* Edit mode: emoji + name inputs */
                           <div className="hd-sub-edit-row" onClick={e => e.stopPropagation()}>
-                            <input
-                              className="hd-sub-edit-emoji"
-                              value={subEditState!.emoji}
-                              placeholder="🙂"
-                              onChange={e => setSubEditState(prev => prev ? { ...prev, emoji: e.target.value } : null)}
-                              onKeyDown={handleSubEditKeyDown}
-                              onClick={e => e.stopPropagation()}
-                            />
                             <input
                               className="hd-sub-edit-name"
                               value={subEditState!.name}
@@ -446,25 +411,21 @@ export default function HabitDiary({
                             >×</button>
                           </div>
                         ) : (
-                          /* Display mode */
-                          <>
-                            {sh.emoji && <span className="hd-sub-emoji">{sh.emoji}</span>}
-                            <span
-                              className="hd-sub-name"
-                              onDoubleClick={e => { e.stopPropagation(); startSubEdit(habit.id, sh.id, sh.name, sh.emoji); }}
-                            >
-                              {sh.name}
-                            </span>
-                          </>
+                          <span
+                            className="hd-sub-name"
+                            onDoubleClick={e => { e.stopPropagation(); startSubEdit(habit.id, sh.id, sh.name); }}
+                          >
+                            {sh.name}
+                          </span>
                         )}
 
-                        {/* Time spent */}
+                        {/* Time spent badge */}
                         {shSpentLabel && !isEditing && (
-                          <span className="hd-sub-spent" style={{ background: color + '22', color }}>{shSpentLabel}</span>
+                          <span className="hd-sub-spent" style={{ background: color + '20', color }}>{shSpentLabel}</span>
                         )}
 
                         {/* Running dot */}
-                        {shActive && timerRunning && (
+                        {shActive && timerRunning && !isEditing && (
                           <span className="hd-running-dot hd-sub-running" style={{ background: color }} />
                         )}
 
@@ -477,13 +438,13 @@ export default function HabitDiary({
                             onClick={e => { e.stopPropagation(); !timerRunning && onSelect(sh.id); }}
                             title="フォーカスタイマーで計測"
                           >
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                            <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor">
                               <polygon points="5,3 19,12 5,21"/>
                             </svg>
                           </button>
                         )}
 
-                        {/* Sub-habit kebab ⋮ — always visible on mobile */}
+                        {/* Sub-habit kebab ⋮ */}
                         {!isEditing && (
                           <button
                             type="button"
@@ -516,22 +477,8 @@ export default function HabitDiary({
                   {addingSubFor === habit.id ? (
                     <div className="hd-sub-add-form" onClick={e => e.stopPropagation()}>
                       <input
-                        className="hd-sub-add-emoji"
-                        placeholder="🙂"
-                        value={newSubEmoji}
-                        onChange={e => setNewSubEmoji(e.target.value)}
-                        onClick={e => e.stopPropagation()}
-                        onKeyDown={e => {
-                          e.stopPropagation();
-                          if (e.key === 'Enter') {
-                            const next = e.currentTarget.nextElementSibling as HTMLInputElement;
-                            next?.focus();
-                          }
-                        }}
-                      />
-                      <input
                         className="hd-sub-add-name"
-                        placeholder="サブ習慣名..."
+                        placeholder="サブ習慣名を入力..."
                         value={newSubName}
                         autoFocus
                         onChange={e => setNewSubName(e.target.value)}
@@ -542,7 +489,6 @@ export default function HabitDiary({
                           if (e.key === 'Escape') {
                             setAddingSubFor(null);
                             setNewSubName('');
-                            setNewSubEmoji('');
                           }
                         }}
                       />
@@ -559,7 +505,6 @@ export default function HabitDiary({
                           e.stopPropagation();
                           setAddingSubFor(null);
                           setNewSubName('');
-                          setNewSubEmoji('');
                         }}
                       >×</button>
                     </div>
@@ -624,12 +569,6 @@ export default function HabitDiary({
           }}>📝 詳細を編集</button>
 
           <button type="button" className="hd-context-item" onClick={() => {
-            const habit = habits.find(h => h.id === contextMenu.habitId);
-            if (habit) setEditState({ habitId: habit.id, field: 'emoji', value: habit.emoji ?? '' });
-            setContextMenu(null);
-          }}>🎨 絵文字を変更</button>
-
-          <button type="button" className="hd-context-item" onClick={() => {
             setExpandedHabitId(contextMenu.habitId);
             setAddingSubFor(contextMenu.habitId);
             setContextMenu(null);
@@ -652,9 +591,9 @@ export default function HabitDiary({
           <button type="button" className="hd-context-item" onClick={() => {
             const habit = habits.find(h => h.id === subContextMenu.habitId);
             const sh = habit?.subHabits?.find(s => s.id === subContextMenu.subId);
-            if (sh) startSubEdit(subContextMenu.habitId, sh.id, sh.name, sh.emoji);
+            if (sh) startSubEdit(subContextMenu.habitId, sh.id, sh.name);
             setSubContextMenu(null);
-          }}>✏️ 名前・絵文字を編集</button>
+          }}>✏️ 名前を編集</button>
 
           <button type="button" className="hd-context-item hd-context-delete" onClick={() => {
             onRemoveSubHabit(subContextMenu.habitId, subContextMenu.subId);
