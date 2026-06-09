@@ -350,44 +350,29 @@
     right: 0;
     width: 100%;
     min-height: auto;
-    max-height: 88vh;
     border-left: none;
     border-top: 1.5px solid #ede9e3;
     border-radius: 20px 20px 0 0;
     padding: 0;
     gap: 0;
-    overflow-y: hidden;
     z-index: 100;
     box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
-    /* Collapsed: only 64px peek bar visible */
-    transform: translateY(calc(100% - 64px));
-    transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
     flex-direction: column;
-    /* No touch-action here — keeps main page scroll unaffected */
+    /* ── KEY FIX: use height-based collapse, NOT transform ──
+       iOS Safari bug: position:fixed + transform causes touch hit-testing
+       to use the PRE-TRANSFORM layout rect (spanning half the screen),
+       making the peek bar intercept taps on habits/tasks in the middle.
+       height:64px + overflow:hidden means the element physically occupies
+       only the bottom 64px — correct hit-testing, no accidental intercepts. */
+    height: 64px;
+    overflow: hidden;
+    transition: height 0.32s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  /* Collapsed: only peek bar should receive pointer events.
-     iOS Safari extends touch areas of fixed+transform elements across
-     the whole screen — pointer-events:none prevents that entirely. */
-  .ft-root {
-    pointer-events: none;
-  }
-
-  /* Peek bar is always interactive */
-  .ft-peek {
-    pointer-events: auto;
-  }
-
-  /* Expanded state: entire panel is interactive */
+  /* Expanded state: slide up to full panel */
   .ft-root--expanded {
-    transform: translateY(0);
+    height: 88vh;
     overflow-y: auto;
-    pointer-events: auto;
-  }
-
-  /* Body is interactive when expanded */
-  .ft-root--expanded .ft-body {
-    pointer-events: auto;
   }
 
   /* ── Peek bar (64px) ── */
@@ -397,18 +382,18 @@
     align-items: center;
     gap: 6px;
     height: 64px;
-    padding: 10px 16px 8px;
+    min-height: 64px;
     flex-shrink: 0;
+    padding: 10px 16px 8px;
     background: linear-gradient(180deg, #fefefe 0%, #faf8f5 100%);
-    border-top: 1.5px solid rgba(196,148,118,0.18);
+    /* sticky keeps peek bar visible while ft-body scrolls (expanded) */
     position: sticky;
     top: 0;
     z-index: 2;
     border-radius: 20px 20px 0 0;
     user-select: none;
     transition: background 0.2s;
-    /* Swipe gesture detection is here — pan-x lets browser handle horiz,
-       JS handles vertical swipe to expand/collapse */
+    /* pan-x: browser handles horiz scroll, JS handles vertical swipe */
     touch-action: pan-x;
   }
 

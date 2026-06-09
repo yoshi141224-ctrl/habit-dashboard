@@ -89,7 +89,8 @@ export function useTimer({ onComplete, onSessionSaved }: TimerOptions = {}) {
   }
 
   const today = new Date().toISOString().slice(0, 10);
-  const todaySessions = sessions.filter(s => s.startTime.slice(0, 10) === today);
+  // Use optional chaining to guard against any corrupted localStorage sessions
+  const todaySessions = sessions.filter(s => s?.startTime?.slice(0, 10) === today);
   const totalFocusSeconds = todaySessions.reduce((acc, s) => acc + s.durationSeconds, 0);
 
   return {
