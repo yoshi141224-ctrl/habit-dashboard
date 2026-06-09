@@ -4,7 +4,25 @@ import { LS_HABITS, LS_COMPLETIONS } from '../types';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-const TODAY = () => new Date().toISOString().slice(0, 10);
+// ─────────────────────────────────────────────────────────────
+// IMPORTANT: Always use local-time date helpers.
+// NEVER use toISOString().slice(0,10) for date keys — that
+// returns the UTC date, which in JST (UTC+9) is the previous
+// calendar day before 09:00 AM. This caused dates to jump by
+// 2 days during navigation and made "today" unreachable.
+// ─────────────────────────────────────────────────────────────
+
+/** Returns "YYYY-MM-DD" in LOCAL timezone */
+function localDateStr(d: Date): string {
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, '0'),
+    String(d.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
+/** Today's date string in LOCAL timezone */
+const TODAY = () => localDateStr(new Date());
 
 const defaultHabits: Habit[] = [
   { id: 'h1', name: 'Meditation', detail: '10 min', createdAt: '2024-01-01' },
@@ -23,9 +41,9 @@ function generateSeedCompletions(habits: Habit[]): CompletionMap {
   const today = new Date();
   const map: CompletionMap = {};
   countPerDay.forEach((count, i) => {
-    const d = new Date(today);
-    d.setDate(today.getDate() - (6 - i));
-    const key = d.toISOString().slice(0, 10);
+    // new Date(y, m, d) uses LOCAL time — safe
+    const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - (6 - i));
+    const key = localDateStr(d);
     map[key] = habits.slice(0, Math.min(count, habits.length)).map(h => h.id);
   });
   return map;
@@ -64,17 +82,23 @@ export function useHabits() {
   // Streak: consecutive days (ending today) with ≥1 habit completed
   const streak = useMemo(() => {
     let count = 0;
-    const d = new Date();
-    const todayKey = d.toISOString().slice(0, 10);
+    const today = new Date();
+    // Work in LOCAL year/month/day to avoid UTC offset issues
+    let y = today.getFullYear();
+    let m = today.getMonth();
+    let day = today.getDate();
+
+    const todayKey = localDateStr(new Date(y, m, day));
     // If today has no completions, start counting from yesterday
     if ((completions[todayKey] ?? []).length === 0) {
-      d.setDate(d.getDate() - 1);
+      day -= 1;
     }
+
     while (count < 366) {
-      const key = d.toISOString().slice(0, 10);
+      const key = localDateStr(new Date(y, m, day));
       if ((completions[key] ?? []).length === 0) break;
       count++;
-      d.setDate(d.getDate() - 1);
+      day -= 1;
     }
     return count;
   }, [completions]);
@@ -83,9 +107,9 @@ export function useHabits() {
   const weeklyHabitData: BarChartDatum[] = useMemo(() => {
     const today = new Date();
     return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(today);
-      d.setDate(today.getDate() - (6 - i));
-      const key = d.toISOString().slice(0, 10);
+      // new Date(y, m, d) always uses LOCAL time
+      const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - (6 - i));
+      const key = localDateStr(d);
       const done = (completions[key] ?? []).length;
       const total = habits.length;
       return {
@@ -134,9 +158,10 @@ export function useHabits() {
 
   function navigateDate(delta: -1 | 1) {
     setSelectedDate(prev => {
-      const d = new Date(prev + 'T00:00:00');
-      d.setDate(d.getDate() + delta);
-      const next = d.toISOString().slice(0, 10);
+      // Parse YYYY-MM-DD into LOCAL year/month/day integers (no UTC conversion)
+      const [y, mo, d] = prev.split('-').map(Number);
+      // new Date(y, m, d + delta) uses LOCAL time — advancing/retreating 1 real day
+      const next = localDateStr(new Date(y, mo - 1, d + delta));
       // Block navigation into the future
       if (next > TODAY()) return prev;
       return next;

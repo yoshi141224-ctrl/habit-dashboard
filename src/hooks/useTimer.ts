@@ -88,9 +88,17 @@ export function useTimer({ onComplete, onSessionSaved }: TimerOptions = {}) {
     return [h, m, s].map(n => String(n).padStart(2, '0')).join(':');
   }
 
-  const today = new Date().toISOString().slice(0, 10);
-  // Use optional chaining to guard against any corrupted localStorage sessions
-  const todaySessions = sessions.filter(s => s?.startTime?.slice(0, 10) === today);
+  // Use LOCAL date to avoid UTC offset issues (e.g. JST: toISOString gives previous day before 09:00)
+  const todayLocal = (() => {
+    const d = new Date();
+    return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
+  })();
+  const todaySessions = sessions.filter(s => {
+    if (!s?.startTime) return false;
+    const sd = new Date(s.startTime);
+    const key = [sd.getFullYear(), String(sd.getMonth() + 1).padStart(2, '0'), String(sd.getDate()).padStart(2, '0')].join('-');
+    return key === todayLocal;
+  });
   const totalFocusSeconds = todaySessions.reduce((acc, s) => acc + s.durationSeconds, 0);
 
   return {
