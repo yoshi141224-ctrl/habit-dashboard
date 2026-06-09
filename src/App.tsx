@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import './App.css';
 import { useHabits } from './hooks/useHabits';
 import { useTasks } from './hooks/useTasks';
@@ -56,6 +56,17 @@ export default function App() {
     }
   }, [timeLogs]);
 
+  // habitGcalEvents: date:habitId → gcalEventId のマップ（localStorage保存）
+  const [habitGcalEvents, setHabitGcalEvents] = useState<Record<string, string>>(() => {
+    try { return JSON.parse(localStorage.getItem('hd_habit_gcal_events') ?? '{}'); } catch { return {}; }
+  });
+  useEffect(() => {
+    localStorage.setItem('hd_habit_gcal_events', JSON.stringify(habitGcalEvents));
+  }, [habitGcalEvents]);
+
+  // updateSessionGcalId を ref 経由で参照（循環参照を避けるため）
+  const updateSessionGcalIdRef = useRef<((sessionId: string, gcalEventId: string) => void) | null>(null);
+
   // onSessionSaved: sync to Google Calendar when a session is completed
   const handleSessionSaved = useCallback((session: import('./types').FocusSession) => {
     if (!gcal.connected || !session.itemId) return;
@@ -63,10 +74,15 @@ export default function App() {
     const task  = tasks.tasks.find(t => t.id === session.itemId);
     const name  = habit?.name ?? task?.title ?? 'Focus Session';
     const color = itemColorMap[session.itemId] ?? null;
-    gcal.createEvent(session, name, color);
+    gcal.createEvent(session, name, color).then(eventId => {
+      if (eventId) updateSessionGcalIdRef.current?.(session.id, eventId);
+    });
   }, [gcal, habits.habits, tasks.tasks, itemColorMap]);
 
   const timer = useTimer({ onComplete: handleTimerComplete, onSessionSaved: handleSessionSaved });
+
+  // timer が定義された後に ref を更新
+  updateSessionGcalIdRef.current = timer.updateSessionGcalId;
 
   // Item name/color for FocusTimer display
   const activeTimerItemId = timer.currentItemId ?? selectedItemId;
@@ -93,6 +109,39 @@ export default function App() {
 
   function handleStart() {
     timer.start(selectedItemId);
+  }
+
+  // 習慣チェック → GCal 終日イベント作成/削除
+  function handleToggleHabit(habitId: string, date: string) {
+    const wasChecked = (habits.completions[date] ?? []).includes(habitId);
+    habits.toggleHabit(habitId, date);
+    if (!gcal.connected) return;
+    if (!wasChecked) {
+      // チェック → 終日イベント作成
+      const habit = habits.habits.find(h => h.id === habitId);
+      if (!habit) return;
+      gcal.createHabitEvent(date, habit.name, itemColorMap[habitId] ?? null)
+        .then(eventId => {
+          if (eventId) setHabitGcalEvents(prev => ({ ...prev, [`${date}:${habitId}`]: eventId }));
+        });
+    } else {
+      // チェック解除 → イベント削除
+      const key = `${date}:${habitId}`;
+      const eid = habitGcalEvents[key];
+      if (eid) {
+        gcal.deleteEvent(eid);
+        setHabitGcalEvents(prev => { const n = { ...prev }; delete n[key]; return n; });
+      }
+    }
+  }
+
+  // フォーカスセッション削除 → GCal イベントも削除
+  function handleDeleteSession(sessionId: string) {
+    const session = timer.sessions.find(s => s.id === sessionId);
+    if (session?.gcalEventId && gcal.connected) {
+      gcal.deleteEvent(session.gcalEventId);
+    }
+    timer.deleteSession(sessionId);
   }
 
   // Today's time logs
@@ -252,7 +301,7 @@ export default function App() {
               activeItemId={timer.status === 'idle' ? selectedItemId : timer.currentItemId}
               timerRunning={timer.status === 'running'}
               colorMap={itemColorMap}
-              onToggle={habits.toggleHabit}
+              onToggle={handleToggleHabit}
               onToggleSub={habits.toggleSubHabit}
               onNavigate={habits.navigateDate}
               onSelect={selectItem}
@@ -303,6 +352,7 @@ export default function App() {
         onGcalClientIdChange={gcal.setClientId}
         onGcalConnect={gcal.connect}
         onGcalDisconnect={gcal.disconnect}
+        onDeleteSession={handleDeleteSession}
       />
     </div>
   );

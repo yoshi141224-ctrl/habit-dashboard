@@ -82,7 +82,13 @@ export interface GoogleCalendarHook {
     session: FocusSession,
     itemName: string,
     itemColor: string | null,
-  ) => Promise<void>;
+  ) => Promise<string | null>;
+  createHabitEvent: (
+    dateStr: string,
+    habitName: string,
+    color: string | null,
+  ) => Promise<string | null>;
+  deleteEvent: (gcalEventId: string) => Promise<void>;
 }
 
 export function useGoogleCalendar(): GoogleCalendarHook {
@@ -153,12 +159,12 @@ export function useGoogleCalendar(): GoogleCalendarHook {
   }
 
   const createEvent = useCallback(
-    async (session: FocusSession, itemName: string, itemColor: string | null) => {
+    async (session: FocusSession, itemName: string, itemColor: string | null): Promise<string | null> => {
       if (!tokenRef.current) {
         setLastError('Google カレンダーに接続してください');
-        return;
+        return null;
       }
-      if (session.durationSeconds < 30) return; // 30秒未満は同期しない
+      if (session.durationSeconds < 30) return null; // 30秒未満は同期しない
       setSyncing(true);
       setLastError(null);
       try {
@@ -195,9 +201,13 @@ export function useGoogleCalendar(): GoogleCalendarHook {
             const err = await res.json().catch(() => ({}));
             setLastError((err as { error?: { message?: string } }).error?.message ?? `API error ${res.status}`);
           }
+          return null;
         }
+        const data = await res.json().catch(() => ({}));
+        return (data as { id?: string }).id ?? null;
       } catch (e) {
         setLastError(e instanceof Error ? e.message : String(e));
+        return null;
       } finally {
         setSyncing(false);
       }
@@ -205,5 +215,89 @@ export function useGoogleCalendar(): GoogleCalendarHook {
     [],
   );
 
-  return { connected, syncing, lastError, clientId, setClientId, connect, disconnect, createEvent };
+  const createHabitEvent = useCallback(
+    async (dateStr: string, habitName: string, color: string | null): Promise<string | null> => {
+      if (!tokenRef.current) {
+        setLastError('Google カレンダーに接続してください');
+        return null;
+      }
+      setSyncing(true);
+      setLastError(null);
+      try {
+        // 翌日の日付を計算
+        const [year, month, day] = dateStr.split('-').map(Number);
+        const nextDate = new Date(year, month - 1, day + 1);
+        const nextDateStr = [
+          nextDate.getFullYear(),
+          String(nextDate.getMonth() + 1).padStart(2, '0'),
+          String(nextDate.getDate()).padStart(2, '0'),
+        ].join('-');
+        const body = {
+          summary: `✅ ${habitName}`,
+          start: { date: dateStr },
+          end:   { date: nextDateStr },
+          colorId: toCalendarColorId(color),
+        };
+        const res = await fetch(
+          'https://www.googleapis.com/calendar/v3/calendars/primary/events',
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${tokenRef.current}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(body),
+          },
+        );
+        if (!res.ok) {
+          if (res.status === 401) {
+            tokenRef.current = null;
+            localStorage.removeItem(LS_ACCESS_TOKEN);
+            setConnected(false);
+            setLastError('トークンが期限切れです。再接続してください');
+          } else {
+            const err = await res.json().catch(() => ({}));
+            setLastError((err as { error?: { message?: string } }).error?.message ?? `API error ${res.status}`);
+          }
+          return null;
+        }
+        const data = await res.json().catch(() => ({}));
+        return (data as { id?: string }).id ?? null;
+      } catch (e) {
+        setLastError(e instanceof Error ? e.message : String(e));
+        return null;
+      } finally {
+        setSyncing(false);
+      }
+    },
+    [],
+  );
+
+  const deleteEvent = useCallback(
+    async (gcalEventId: string): Promise<void> => {
+      if (!tokenRef.current) return;
+      try {
+        const res = await fetch(
+          `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(gcalEventId)}`,
+          {
+            method: 'DELETE',
+            headers: {
+              Authorization: `Bearer ${tokenRef.current}`,
+            },
+          },
+        );
+        if (res.status === 401) {
+          tokenRef.current = null;
+          localStorage.removeItem(LS_ACCESS_TOKEN);
+          setConnected(false);
+          setLastError('トークンが期限切れです。再接続してください');
+        }
+      } catch (e) {
+        setLastError(e instanceof Error ? e.message : String(e));
+      }
+    },
+    [],
+  );
+
+  return { connected, syncing, lastError, clientId, setClientId, connect, disconnect, createEvent, createHabitEvent, deleteEvent };
 }

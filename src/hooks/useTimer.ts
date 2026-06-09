@@ -101,6 +101,22 @@ export function useTimer({ onComplete, onSessionSaved }: TimerOptions = {}) {
   });
   const totalFocusSeconds = todaySessions.reduce((acc, s) => acc + s.durationSeconds, 0);
 
+  function updateSessionGcalId(sessionId: string, gcalEventId: string): void {
+    setSessions(prev => {
+      const next = prev.map(s => s.id === sessionId ? { ...s, gcalEventId } : s);
+      localStorage.setItem(LS_SESSIONS, JSON.stringify(next));
+      return next;
+    });
+  }
+
+  function deleteSession(sessionId: string): void {
+    setSessions(prev => {
+      const next = prev.filter(s => s.id !== sessionId);
+      localStorage.setItem(LS_SESSIONS, JSON.stringify(next));
+      return next;
+    });
+  }
+
   return {
     status,
     elapsed,
@@ -114,5 +130,7 @@ export function useTimer({ onComplete, onSessionSaved }: TimerOptions = {}) {
     pause,
     reset,
     formatTime,
+    updateSessionGcalId,
+    deleteSession,
   };
 }

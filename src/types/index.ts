@@ -26,6 +26,7 @@ export interface FocusSession {
   durationSeconds: number;
   itemId: string | null;
   notes: string;
+  gcalEventId?: string;
 }
 
 // date → itemId → seconds

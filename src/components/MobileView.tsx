@@ -63,6 +63,7 @@ interface Props {
   onTimerReset: () => void;
   onNotesChange: (v: string) => void;
   formatTime: (s: number) => string;
+  onDeleteSession?: (id: string) => void;
   // Charts
   stackedData: StackedBarDatum[];
   monthStackedData: StackedBarDatum[];
@@ -120,6 +121,7 @@ export default function MobileView({
   onTimerReset,
   onNotesChange,
   formatTime,
+  onDeleteSession,
   stackedData,
   monthStackedData,
   legendItems,
@@ -367,6 +369,20 @@ export default function MobileView({
                           <span className="mv-timer-session-dur">
                             {formatDurationShort(s.durationSeconds)}
                           </span>
+                          {onDeleteSession && (
+                            <button
+                              type="button"
+                              className="mv-session-del"
+                              onClick={() => onDeleteSession(s.id)}
+                              title="セッションを削除"
+                            >
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                                <polyline points="3 6 5 6 21 6"/>
+                                <path d="M19 6l-1 14H6L5 6"/>
+                                <path d="M10 11v6M14 11v6"/>
+                              </svg>
+                            </button>
+                          )}
                         </div>
                       );
                     })}

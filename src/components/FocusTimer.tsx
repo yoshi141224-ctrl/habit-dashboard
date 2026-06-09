@@ -25,6 +25,7 @@ interface Props {
   onGcalClientIdChange: (id: string) => void;
   onGcalConnect: () => Promise<void>;
   onGcalDisconnect: () => void;
+  onDeleteSession?: (id: string) => void;
 }
 
 function fmtShort(isoStr: string): string {
@@ -47,6 +48,7 @@ export default function FocusTimer({
   onStart, onPause, onReset, onNotesChange, formatTime,
   gcalConnected, gcalSyncing, gcalLastError,
   gcalClientId, onGcalClientIdChange, onGcalConnect, onGcalDisconnect,
+  onDeleteSession,
 }: Props) {
   const [mobileExpanded, setMobileExpanded] = useState(false);
   const [showGcalSetup, setShowGcalSetup] = useState(false);
@@ -229,6 +231,20 @@ export default function FocusTimer({
                   <span className="ft-session-dur">{fmtDuration(s.durationSeconds)}</span>
                   {gcalConnected && (
                     <span className="ft-session-gcal" title="Synced to Google Calendar">📅</span>
+                  )}
+                  {onDeleteSession && (
+                    <button
+                      type="button"
+                      className="ft-session-del"
+                      onClick={() => onDeleteSession(s.id)}
+                      title="セッションを削除"
+                    >
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                        <polyline points="3 6 5 6 21 6"/>
+                        <path d="M19 6l-1 14H6L5 6"/>
+                        <path d="M10 11v6M14 11v6"/>
+                      </svg>
+                    </button>
                   )}
                 </li>
               ))}

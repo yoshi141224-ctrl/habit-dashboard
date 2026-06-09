@@ -169,6 +169,25 @@
 .ft-session-dur  { font-weight: 700; color: var(--tx-1, #17120B); }
 .ft-session-gcal { font-size: 11px; }
 
+.ft-session-del {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--tx-4, #B4A89E);
+  padding: 3px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+.ft-session-item:hover .ft-session-del { opacity: 1; }
+.ft-session-del:hover { color: #C0392B; }
+@media (max-width: 1023px) {
+  .ft-session-del { opacity: 0.5; }
+}
+
 .ft-total {
   display: flex;
   justify-content: space-between;

@@ -277,6 +277,24 @@
   flex-shrink: 0;
 }
 
+.mv-session-del {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--tx-4, #B4A89E);
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-left: auto;
+  min-width: 28px;
+  min-height: 28px;
+  touch-action: manipulation;
+}
+.mv-session-del:active { color: #C0392B; }
+
 .mv-timer-session-time { flex: 1; }
 .mv-timer-session-dur { font-weight: 700; color: var(--tx-1, #17120B); }
 
