@@ -136,7 +136,7 @@ export default function FocusTimer({
 
       {/* ── Full panel content ── */}
       <div className="ft-body">
-        <h2 className="ft-heading">Focus Timer</h2>
+        <h2 className="ft-heading">フォーカスタイマー</h2>
 
         {activeItemName && (
           <div
@@ -171,7 +171,7 @@ export default function FocusTimer({
               {formatTime(elapsed)}
             </text>
             <text x="80" y="98" textAnchor="middle" fontSize="9" fill="#9a938c">
-              Focus Time
+              集中時間
             </text>
           </svg>
         </div>
@@ -189,14 +189,14 @@ export default function FocusTimer({
                   <rect x="6" y="4" width="4" height="16"/>
                   <rect x="14" y="4" width="4" height="16"/>
                 </svg>
-                Pause
+                一時停止
               </>
             ) : (
               <>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                   <polygon points="5,3 19,12 5,21"/>
                 </svg>
-                {status === 'paused' ? 'Resume' : 'Start'}
+                {status === 'paused' ? '再開' : '開始'}
               </>
             )}
           </button>
@@ -211,13 +211,13 @@ export default function FocusTimer({
         </div>
 
         {!activeItemName && status === 'idle' && (
-          <p className="ft-hint">← Select a habit or task to track time</p>
+          <p className="ft-hint">← 習慣またはタスクを選択して時間を記録</p>
         )}
 
         <div className="ft-section">
-          <h3 className="ft-section-title">Today's Sessions</h3>
+          <h3 className="ft-section-title">今日のセッション</h3>
           {todaySessions.length === 0 ? (
-            <p className="ft-empty">No sessions yet</p>
+            <p className="ft-empty">セッションなし</p>
           ) : (
             <ul className="ft-sessions-list">
               {todaySessions.map((s, i) => (
@@ -235,26 +235,26 @@ export default function FocusTimer({
             </ul>
           )}
           <div className="ft-total">
-            <span className="ft-total-label">Total Focus Time</span>
+            <span className="ft-total-label">今日の合計</span>
             <span className="ft-total-value">{fmtDuration(totalFocusSeconds)}</span>
           </div>
         </div>
 
         <div className="ft-section ft-details">
-          <h3 className="ft-section-title">Session Details</h3>
+          <h3 className="ft-section-title">セッション詳細</h3>
           <div className="ft-detail-grid">
-            <span className="ft-detail-key">Start Time</span>
+            <span className="ft-detail-key">開始</span>
             <span className="ft-detail-val">{lastSession ? fmtShort(lastSession.startTime) : '—'}</span>
-            <span className="ft-detail-key">End Time</span>
+            <span className="ft-detail-key">終了</span>
             <span className="ft-detail-val">{lastSession ? fmtShort(lastSession.endTime) : '—'}</span>
-            <span className="ft-detail-key">Focus Time</span>
+            <span className="ft-detail-key">集中時間</span>
             <span className="ft-detail-val">{lastSession ? fmtDuration(lastSession.durationSeconds) : '—'}</span>
           </div>
           <div className="ft-notes-section">
-            <p className="ft-detail-key">Notes</p>
+            <p className="ft-detail-key">メモ</p>
             <textarea
               className="ft-notes"
-              placeholder="How was your focus?"
+              placeholder="集中度はどうでしたか？"
               value={pendingNotes}
               onChange={e => onNotesChange(e.target.value)}
               rows={2}

@@ -8,12 +8,12 @@ interface Props {
   onClearAll: () => void;
 }
 
-const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const DAY_JP = ['日', '月', '火', '水', '木', '金', '土'];
 
 function formatDate(dateStr: string): string {
-  const d = new Date(dateStr + 'T00:00:00');
-  return `${DAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  return `${y}年${m}月${d}日（${DAY_JP[date.getDay()]}）`;
 }
 
 function formatTime(isoStr: string): string {
@@ -44,11 +44,11 @@ export default function CompletedTasksLog({ completedTasks, onRemove, onClearAll
             <rect x="9" y="3" width="6" height="4" rx="1" ry="1"/>
             <path d="M9 12l2 2 4-4"/>
           </svg>
-          <span className="ctl-title">Completed Tasks</span>
+          <span className="ctl-title">完了したタスク</span>
           <span className="ctl-count">{completedTasks.length}</span>
         </div>
         {completedTasks.length > 0 && (
-          <button type="button" className="ctl-clear-btn" onClick={onClearAll}>Clear All</button>
+          <button type="button" className="ctl-clear-btn" onClick={onClearAll}>全て削除</button>
         )}
       </div>
 
@@ -60,8 +60,8 @@ export default function CompletedTasksLog({ completedTasks, onRemove, onClearAll
             <rect x="9" y="3" width="6" height="4" rx="1" ry="1"/>
             <path d="M9 12l2 2 4-4"/>
           </svg>
-          <p className="ctl-empty-title">No completed tasks yet</p>
-          <p className="ctl-empty-sub">Tasks you complete will appear here with dates.</p>
+          <p className="ctl-empty-title">完了したタスクはまだありません</p>
+          <p className="ctl-empty-sub">完了したタスクが日付付きでここに表示されます。</p>
         </div>
       ) : (
         <div className="ctl-groups">
@@ -69,7 +69,7 @@ export default function CompletedTasksLog({ completedTasks, onRemove, onClearAll
             <div key={date} className="ctl-group">
               <div className="ctl-date-header">
                 <span className="ctl-date-text">{formatDate(date)}</span>
-                <span className="ctl-date-count">{grouped[date].length} task{grouped[date].length > 1 ? 's' : ''}</span>
+                <span className="ctl-date-count">{grouped[date].length}件</span>
               </div>
               <div className="ctl-list">
                 {grouped[date].map(task => {
@@ -94,7 +94,7 @@ export default function CompletedTasksLog({ completedTasks, onRemove, onClearAll
                           <span className="ctl-tag" style={{ background: tagBg }}>{task.tag}</span>
                           <span className="ctl-time">{task.time}</span>
                           <span className="ctl-dot">·</span>
-                          <span className="ctl-completed-at">Done {formatTime(task.completedAt)}</span>
+                          <span className="ctl-completed-at">{formatTime(task.completedAt)} 完了</span>
                         </div>
                       </div>
 

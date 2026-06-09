@@ -17,8 +17,7 @@ function formatDurationShort(seconds: number): string {
   return `${Math.floor(m / 60)}h${m % 60 > 0 ? ` ${m % 60}m` : ''}`;
 }
 
-const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const DAY_JP = ['日', '月', '火', '水', '木', '金', '土'];
 
 interface Props {
   habits: Habit[];
@@ -38,8 +37,10 @@ interface Props {
 }
 
 function formatDate(dateStr: string): string {
-  const d = new Date(dateStr + 'T00:00:00');
-  return `${MONTHS[d.getMonth()]} ${d.getDate()}, ${DAYS[d.getDay()]}`;
+  // Parse as local date to avoid UTC offset shifting the displayed day
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  return `${m}月${d}日（${DAY_JP[date.getDay()]}）`;
 }
 
 function formatMinutes(seconds: number): string {
@@ -108,7 +109,7 @@ export default function HabitDiary({
             <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
             <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
           </svg>
-          <span className="hd-title">Habit Diary</span>
+          <span className="hd-title">習慣ダイアリー</span>
         </div>
         <div className="hd-date-nav">
           <button type="button" className="hd-nav-btn" onClick={() => onNavigate(-1)}>&#8249;</button>
@@ -116,7 +117,7 @@ export default function HabitDiary({
           <button type="button" className="hd-nav-btn" onClick={() => onNavigate(1)}>&#8250;</button>
         </div>
         <button type="button" className="hd-add-btn-header" onClick={() => setShowModal(true)}>
-          <span>+</span> Add Habit
+          <span>+</span> 習慣を追加
         </button>
       </div>
 
@@ -243,7 +244,7 @@ export default function HabitDiary({
 
       <div className="hd-footer">
         <div className="hd-progress-info">
-          <span className="hd-progress-text">{completedCount} / {totalCount} habits completed</span>
+          <span className="hd-progress-text">{completedCount} / {totalCount} 習慣完了</span>
         </div>
         <div className="hd-progress-track">
           <div className="hd-progress-fill" style={{ width: `${completionRate}%` }} />
@@ -269,7 +270,7 @@ export default function HabitDiary({
               setContextMenu(null);
             }}
           >
-            ✏️ Edit name
+            ✏️ 名前を編集
           </button>
           <button
             type="button"
@@ -280,10 +281,10 @@ export default function HabitDiary({
               setContextMenu(null);
             }}
           >
-            📝 Edit detail
+            📝 詳細を編集
           </button>
           <button type="button" className="hd-context-item hd-context-delete" onClick={() => { onRemoveHabit(contextMenu.habitId); setContextMenu(null); }}>
-            🗑️ Remove habit
+            🗑️ 習慣を削除
           </button>
         </div>
       )}

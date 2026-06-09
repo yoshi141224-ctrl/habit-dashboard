@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="ja" translate="no">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -8,10 +8,17 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>Habit Dashboard</title>
+    <!-- Prevent Google Translate / Chrome auto-translate from modifying React-managed DOM nodes.
+         Chrome Translate wraps text nodes in <font> elements, which causes React's reconciler
+         to throw NOT_FOUND_ERR (DOMException) when it can't find expected child nodes.
+         The app UI is natively in Japanese so translation is not needed. -->
+    <meta name="google" content="notranslate" />
+    <title>習慣ダッシュボード</title>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- class="notranslate" is recognized by Chrome/Google Translate as a signal
+         to skip DOM modification for this element and all its children -->
+    <div id="root" class="notranslate"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

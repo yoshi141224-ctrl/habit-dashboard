@@ -62,11 +62,11 @@ export default function ToDoList({
             <polyline points="9 11 12 14 22 4"/>
             <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
           </svg>
-          <span className="tl-title">To Do List</span>
+          <span className="tl-title">タスクリスト</span>
           <span className="tl-count">{completedCount}/{tasks.length}</span>
         </div>
         <button type="button" className="tl-add-btn" onClick={() => setShowModal(true)}>
-          <span>+</span> Add Task
+          <span>+</span> タスクを追加
         </button>
       </div>
 
@@ -162,7 +162,7 @@ export default function ToDoList({
           );
         })}
         {tasks.length === 0 && (
-          <p className="tl-empty">No tasks yet. Add one above!</p>
+          <p className="tl-empty">タスクはまだありません。上から追加してください！</p>
         )}
       </div>
 
@@ -180,7 +180,7 @@ export default function ToDoList({
           onClick={e => e.stopPropagation()}
         >
           <button type="button" className="tl-context-delete" onClick={() => { onRemove(contextMenu.id); setContextMenu(null); }}>
-            Remove task
+            タスクを削除
           </button>
         </div>
       )}
@@ -195,13 +195,13 @@ export default function ToDoList({
                   <circle cx="10" cy="10" r="9" fill="#4a9e5c" />
                   <polyline points="5.5,10 8.5,13 14.5,7" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
-                <span className="tl-toast-msg">"{task.title}" completed!</span>
+                <span className="tl-toast-msg">「{task.title}」完了！</span>
                 <button
                   type="button"
                   className="tl-toast-undo"
                   onClick={() => onUndo(task.id)}
                 >
-                  Undo
+                  取り消し
                 </button>
               </div>
               <div className="tl-toast-bar-track">
