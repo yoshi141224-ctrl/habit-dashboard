@@ -81,6 +81,7 @@
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 8px;
+  align-items: start; /* each cell only as tall as its own content */
 }
 
 /* ── Cell ── */

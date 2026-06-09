@@ -72,8 +72,9 @@ export default function HabitDiary({
   const [contextMenu, setContextMenu] = useState<{ habitId: string; x: number; y: number } | null>(null);
   // Parent habit inline edit
   const [editState, setEditState] = useState<EditState>(null);
-  // Sub-habit expand state
-  const [expandedHabitId, setExpandedHabitId] = useState<string | null>(null);
+  // Sub-habit expand state — Set so multiple can be open independently
+  // Each habit stays open until the user explicitly closes it (arrow button only)
+  const [expandedHabitIds, setExpandedHabitIds] = useState<Set<string>>(new Set());
   // Sub-habit inline add form
   const [addingSubFor, setAddingSubFor] = useState<string | null>(null);
   const [newSubName, setNewSubName] = useState('');
@@ -172,7 +173,24 @@ export default function HabitDiary({
   }
 
   function toggleExpand(habitId: string) {
-    setExpandedHabitId(prev => prev === habitId ? null : habitId);
+    setExpandedHabitIds(prev => {
+      const next = new Set(prev);
+      if (next.has(habitId)) {
+        next.delete(habitId);
+      } else {
+        next.add(habitId);
+      }
+      return next;
+    });
+  }
+
+  function ensureExpanded(habitId: string) {
+    setExpandedHabitIds(prev => {
+      if (prev.has(habitId)) return prev;
+      const next = new Set(prev);
+      next.add(habitId);
+      return next;
+    });
   }
 
   // Total time for a habit = own time + all sub-habit times
@@ -222,7 +240,7 @@ export default function HabitDiary({
           const habitSessions = sessions.filter(s => s.itemId === habit.id);
           const subHabits = habit.subHabits ?? [];
           const hasSubHabits = subHabits.length > 0;
-          const isExpanded = expandedHabitId === habit.id;
+          const isExpanded = expandedHabitIds.has(habit.id);
           const subDoneIds = (subCompletions[selectedDate]?.[habit.id]) ?? [];
           const isSubActive = subHabits.some(sh => activeItemId === sh.id);
 
@@ -533,7 +551,7 @@ export default function HabitDiary({
                       onClick={e => {
                         e.stopPropagation();
                         setAddingSubFor(habit.id);
-                        setExpandedHabitId(habit.id);
+                        ensureExpanded(habit.id);
                       }}
                     >
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -587,7 +605,7 @@ export default function HabitDiary({
           }}>📝 詳細を編集</button>
 
           <button type="button" className="hd-context-item" onClick={() => {
-            setExpandedHabitId(contextMenu.habitId);
+            ensureExpanded(contextMenu.habitId);
             setAddingSubFor(contextMenu.habitId);
             setContextMenu(null);
           }}>＋ サブ習慣を追加</button>
