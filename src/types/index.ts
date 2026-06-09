@@ -8,6 +8,7 @@ export interface Habit {
   id: string;
   name: string;
   detail: string;
+  emoji: string;  // empty string if none
   createdAt: string;
   subHabits?: SubHabit[];
 }

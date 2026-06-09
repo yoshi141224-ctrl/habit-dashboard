@@ -25,14 +25,14 @@ function localDateStr(d: Date): string {
 const TODAY = () => localDateStr(new Date());
 
 const defaultHabits: Habit[] = [
-  { id: 'h1', name: 'Meditation', detail: '10 min', createdAt: '2024-01-01' },
-  { id: 'h2', name: 'Exercise', detail: '30 min', createdAt: '2024-01-01' },
-  { id: 'h3', name: 'Reading', detail: '20 pages', createdAt: '2024-01-01' },
-  { id: 'h4', name: 'No Sugar', detail: 'All day', createdAt: '2024-01-01' },
-  { id: 'h5', name: 'Early Sleep', detail: 'Before 11PM', createdAt: '2024-01-01' },
-  { id: 'h6', name: 'Gratitude', detail: '3 things', createdAt: '2024-01-01' },
-  { id: 'h7', name: 'Water', detail: '2L', createdAt: '2024-01-01' },
-  { id: 'h8', name: 'Study', detail: '1 hour', createdAt: '2024-01-01' },
+  { id: 'h1', name: 'Meditation', detail: '10 min', emoji: '🧘', createdAt: '2024-01-01' },
+  { id: 'h2', name: 'Exercise',   detail: '30 min', emoji: '🏃', createdAt: '2024-01-01' },
+  { id: 'h3', name: 'Reading',    detail: '20 pages', emoji: '📖', createdAt: '2024-01-01' },
+  { id: 'h4', name: 'No Sugar',   detail: 'All day', emoji: '🚫', createdAt: '2024-01-01' },
+  { id: 'h5', name: 'Early Sleep', detail: 'Before 11PM', emoji: '🌙', createdAt: '2024-01-01' },
+  { id: 'h6', name: 'Gratitude',  detail: '3 things', emoji: '🙏', createdAt: '2024-01-01' },
+  { id: 'h7', name: 'Water',      detail: '2L', emoji: '💧', createdAt: '2024-01-01' },
+  { id: 'h8', name: 'Study',      detail: '1 hour', emoji: '📚', createdAt: '2024-01-01' },
 ];
 
 // Seed completions for last 7 days so charts look populated on first load
@@ -139,6 +139,7 @@ export function useHabits() {
       id: crypto.randomUUID(),
       name,
       detail,
+      emoji: '',
       createdAt: TODAY(),
     };
     setHabits(prev => [...prev, habit]);
@@ -213,9 +214,11 @@ export function useHabits() {
     });
   }
 
-  function editHabit(habitId: string, name: string, detail: string) {
+  function editHabit(habitId: string, name: string, detail: string, emoji?: string) {
     setHabits(prev => prev.map(h =>
-      h.id === habitId ? { ...h, name: name.trim() || h.name, detail: detail.trim() } : h
+      h.id === habitId
+        ? { ...h, name: name.trim() || h.name, detail: detail.trim(), ...(emoji !== undefined ? { emoji } : {}) }
+        : h
     ));
   }
 
