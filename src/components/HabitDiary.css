@@ -376,16 +376,15 @@
   timer accent — visually linking them while signaling hierarchy.
 */
 
-/* Container */
+/* Container — background & border-left color set via inline style (habit color) */
 .hd-sub-list {
   display: flex;
   flex-direction: column;
   margin-top: 12px;
-  /* border-left color is set via inline style (habit color) */
   border-left: 3px solid transparent;
   border-radius: 0 8px 8px 0;
   padding: 0 6px 6px 10px;
-  background: rgba(0, 0, 0, 0.028);
+  background: transparent; /* overridden inline with color + '1a' */
   gap: 0;
 }
 
@@ -432,7 +431,7 @@
 }
 
 .hd-sub-row:hover {
-  background: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.65);
   border-radius: 5px;
 }
 

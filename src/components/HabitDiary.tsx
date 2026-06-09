@@ -350,13 +350,16 @@ export default function HabitDiary({
               {isExpanded && (
                 <div
                   className="hd-sub-list"
-                  style={{ borderLeftColor: color }}
+                  style={{
+                    borderLeftColor: color,
+                    background: color + '1a',   /* ~10% opacity tint of habit color */
+                  }}
                   onClick={e => e.stopPropagation()}
                 >
                   {/* Sub-list header: label + done/total */}
-                  <div className="hd-sub-list-header">
+                  <div className="hd-sub-list-header" style={{ borderBottomColor: color + '30' }}>
                     <span className="hd-sub-list-label" style={{ color }}>サブ習慣</span>
-                    <span className="hd-sub-list-count">
+                    <span className="hd-sub-list-count" style={{ color: color + 'bb' }}>
                       {subDoneIds.length} / {subHabits.length}
                     </span>
                   </div>
