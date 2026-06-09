@@ -348,7 +348,19 @@ export default function HabitDiary({
 
               {/* ── Sub-habits section ── */}
               {isExpanded && (
-                <div className="hd-sub-list" onClick={e => e.stopPropagation()}>
+                <div
+                  className="hd-sub-list"
+                  style={{ borderLeftColor: color }}
+                  onClick={e => e.stopPropagation()}
+                >
+                  {/* Sub-list header: label + done/total */}
+                  <div className="hd-sub-list-header">
+                    <span className="hd-sub-list-label" style={{ color }}>サブ習慣</span>
+                    <span className="hd-sub-list-count">
+                      {subDoneIds.length} / {subHabits.length}
+                    </span>
+                  </div>
+
                   {subHabits.map((sh, idx) => {
                     const shDone = subDoneIds.includes(sh.id);
                     const shActive = activeItemId === sh.id;
@@ -373,16 +385,19 @@ export default function HabitDiary({
                           setContextMenu(null);
                         }}
                       >
-                        {/* Sub checkbox */}
+                        {/* Sub checkbox — rounded square (visually distinct from parent circle) */}
                         <button
                           type="button"
                           className="hd-sub-checkbox"
                           onClick={e => { e.stopPropagation(); onToggleSub(habit.id, sh.id, selectedDate); }}
                         >
                           {/* IMPORTANT: polyline always in DOM — opacity pattern for iOS WKWebView safety */}
-                          <svg width="22" height="22" viewBox="0 0 22 22">
-                            <circle cx="11" cy="11" r="9.5" fill={shDone ? color : 'none'} stroke={shDone ? color : '#ccc8c4'} strokeWidth="1.5"/>
-                            <polyline points="6,11 9.5,14.5 16,7.5" fill="none" stroke="#fff" strokeWidth="1.8"
+                          <svg width="20" height="20" viewBox="0 0 20 20">
+                            <rect x="1.5" y="1.5" width="17" height="17" rx="4.5"
+                              fill={shDone ? color : 'none'}
+                              stroke={shDone ? color : '#ccc8c4'}
+                              strokeWidth="1.5"/>
+                            <polyline points="4.5,10 8,13.5 15.5,6.5" fill="none" stroke="#fff" strokeWidth="1.8"
                               strokeLinecap="round" strokeLinejoin="round" opacity={shDone ? 1 : 0}/>
                           </svg>
                         </button>
