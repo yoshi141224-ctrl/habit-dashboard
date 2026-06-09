@@ -95,15 +95,23 @@ export default function ToDoList({
                   className="tl-checkbox"
                   onClick={e => { e.stopPropagation(); onToggle(task.id); }}
                 >
+                  {/* polyline always in DOM — iOS WKWebView throws NOT_FOUND_ERR
+                      when SVG child nodes are conditionally inserted/removed. */}
                   <svg width="20" height="20" viewBox="0 0 20 20">
                     <circle cx="10" cy="10" r="9"
                       fill={task.completed ? '#2d2926' : 'none'}
                       stroke={task.completed ? '#2d2926' : '#ccc8c4'}
                       strokeWidth="1.5"
                     />
-                    {task.completed && (
-                      <polyline points="5.5,10 8.5,13 14.5,7" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                    )}
+                    <polyline
+                      points="5.5,10 8.5,13 14.5,7"
+                      fill="none"
+                      stroke="#fff"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      opacity={task.completed ? 1 : 0}
+                    />
                   </svg>
                 </button>
 

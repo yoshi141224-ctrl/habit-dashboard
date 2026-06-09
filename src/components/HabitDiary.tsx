@@ -58,10 +58,7 @@ export default function HabitDiary({
   const [showModal, setShowModal] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ habitId: string; x: number; y: number } | null>(null);
   const [editState, setEditState] = useState<EditState>(null);
-  // Use plain object instead of Set — more compatible across iOS Safari versions
-  const [celebrating, setCelebrating] = useState<Record<string, boolean>>({});
   const inputRef = useRef<HTMLInputElement>(null);
-  const celebrateTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   function showCellMenu(e: React.MouseEvent, habitId: string) {
     e.preventDefault();
@@ -71,24 +68,7 @@ export default function HabitDiary({
   }
 
   function handleToggle(habitId: string, date: string) {
-    const isDone = (completions[date] ?? []).includes(habitId);
     onToggle(habitId, date);
-    // Celebrate only when marking as done (not undoing)
-    if (!isDone) {
-      setCelebrating(prev => ({ ...prev, [habitId]: true }));
-      // Clear any existing timer for this habit
-      if (celebrateTimers.current[habitId]) {
-        clearTimeout(celebrateTimers.current[habitId]);
-      }
-      celebrateTimers.current[habitId] = setTimeout(() => {
-        setCelebrating(prev => {
-          const next = { ...prev };
-          delete next[habitId];
-          return next;
-        });
-        delete celebrateTimers.current[habitId];
-      }, 550);
-    }
   }
 
   function startEdit(e: React.MouseEvent, habitId: string, field: 'name' | 'detail', currentValue: string) {
@@ -149,12 +129,10 @@ export default function HabitDiary({
           const color = colorMap[habit.id] ?? '#9a938c';
           const habitSessions = sessions.filter(s => s.itemId === habit.id);
 
-          const isCelebrating = celebrating[habit.id] === true;
-
           return (
             <div
               key={habit.id}
-              className={`hd-cell${isDone ? ' hd-cell--done' : ''}${isActive ? ' hd-cell--active' : ''}${isCelebrating ? ' hd-cell--celebrate' : ''}`}
+              className={`hd-cell${isDone ? ' hd-cell--done' : ''}${isActive ? ' hd-cell--active' : ''}`}
               style={isActive ? { borderColor: color, background: color + '10' } : undefined}
               onContextMenu={e => { e.preventDefault(); setContextMenu({ habitId: habit.id, x: e.clientX, y: e.clientY }); }}
             >
@@ -164,11 +142,20 @@ export default function HabitDiary({
                 className="hd-checkbox-btn"
                 onClick={e => { e.stopPropagation(); handleToggle(habit.id, selectedDate); }}
               >
+                {/* IMPORTANT: polyline is always in DOM — never conditionally added/removed.
+                    iOS WKWebView throws NOT_FOUND_ERR when React inserts/removes SVG child
+                    nodes during CSS animations. Use opacity attribute instead. */}
                 <svg width="28" height="28" viewBox="0 0 28 28">
                   <circle cx="14" cy="14" r="13" fill={isDone ? '#2d2926' : 'none'} stroke={isDone ? '#2d2926' : '#ccc8c4'} strokeWidth="1.5"/>
-                  {isDone && (
-                    <polyline points="8,14 12,18 20,10" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  )}
+                  <polyline
+                    points="8,14 12,18 20,10"
+                    fill="none"
+                    stroke="#fff"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    opacity={isDone ? 1 : 0}
+                  />
                 </svg>
               </button>
 
