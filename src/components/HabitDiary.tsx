@@ -239,7 +239,6 @@ export default function HabitDiary({
           const color = colorMap[habit.id] ?? '#9a938c';
           const habitSessions = sessions.filter(s => s.itemId === habit.id);
           const subHabits = habit.subHabits ?? [];
-          const hasSubHabits = subHabits.length > 0;
           const isExpanded = expandedHabitIds.has(habit.id);
           const subDoneIds = (subCompletions[selectedDate]?.[habit.id]) ?? [];
           const isSubActive = subHabits.some(sh => activeItemId === sh.id);
@@ -337,19 +336,17 @@ export default function HabitDiary({
                   <span className="hd-running-dot" style={{ background: color }} />
                 )}
 
-                {/* Expand toggle (show only when has sub-habits) */}
-                {hasSubHabits && (
-                  <button
-                    type="button"
-                    className={`hd-expand-btn${isExpanded ? ' hd-expand-btn--open' : ''}`}
-                    onClick={e => { e.stopPropagation(); toggleExpand(habit.id); }}
-                    aria-label={isExpanded ? '折りたたむ' : 'サブ習慣を表示'}
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="6 9 12 15 18 9" opacity={1}/>
-                    </svg>
-                  </button>
-                )}
+                {/* Expand toggle — always shown on every habit */}
+                <button
+                  type="button"
+                  className={`hd-expand-btn${isExpanded ? ' hd-expand-btn--open' : ''}`}
+                  onClick={e => { e.stopPropagation(); toggleExpand(habit.id); }}
+                  aria-label={isExpanded ? '折りたたむ' : 'サブ習慣を表示・追加'}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="6 9 12 15 18 9" opacity={1}/>
+                  </svg>
+                </button>
 
                 {/* Parent kebab ⋮ */}
                 <button
