@@ -177,12 +177,17 @@ export function useGoogleCalendar(): GoogleCalendarHook {
     const gw = window as unknown as GWindow;
     if (!gw.google?.accounts?.oauth2) return;
     if (tokenClientRef.current) return;
-    tokenClientRef.current = gw.google.accounts.oauth2.initTokenClient({
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const config: Record<string, unknown> = {
       client_id: id,
       scope: 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/drive.appdata',
       callback: (resp: TokenResponse) => callbackRef.current?.(resp),
       error_callback: () => errCallbackRef.current?.(),
-    } as Record<string, unknown>);
+    };
+    // Mobile: use redirect mode (GIS popup is blocked by iOS Safari).
+    // redirect mode uses JavaScript origins — no separate redirect URI registration needed.
+    if (isMobile) config.ux_mode = 'redirect';
+    tokenClientRef.current = gw.google.accounts.oauth2.initTokenClient(config);
   }
 
   function setClientId(id: string) {
@@ -210,6 +215,8 @@ export function useGoogleCalendar(): GoogleCalendarHook {
   async function autoConnect(): Promise<boolean> {
     const id = clientId.trim();
     if (!id || connected || isConnecting) return connected;
+    // Mobile uses redirect mode — auto-redirect would be disruptive, skip it.
+    if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) return false;
     setIsConnecting(true);
     setLastError(null);
     try {
