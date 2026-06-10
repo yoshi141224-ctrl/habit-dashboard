@@ -183,12 +183,13 @@ export function useDriveSync({ getToken, onPullComplete, onTokenExpired }: Opts)
     pushTimerRef.current = setTimeout(push, 3000);
   }, [push]);
 
-  function startPolling() {
-    if (isPollingRef.current) return;
+  function startPolling(): Promise<void> {
+    if (isPollingRef.current) return Promise.resolve();
     isPollingRef.current = true;
     initialPullDoneRef.current = false;
-    pull();
+    const firstPull = pull();
     pollIntervalRef.current = setInterval(() => pullRef.current(), POLL_INTERVAL);
+    return firstPull;
   }
 
   function stopPolling() {

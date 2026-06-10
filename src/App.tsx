@@ -107,7 +107,9 @@ export default function App() {
   // Start/stop Drive polling based on connection state
   useEffect(() => {
     if (gcal.connected) {
-      driveSync.startPolling();
+      // After initial pull settles, push local data to Drive.
+      // Handles the case where the user edited habits before connecting GCal.
+      driveSync.startPolling().then(() => driveSync.schedulePush());
     } else {
       driveSync.stopPolling();
     }
