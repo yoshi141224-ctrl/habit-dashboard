@@ -26,9 +26,12 @@ export default function App() {
   const tasks = useTasks();
   const timeLogs = useTimeLogs();
   const gcal = useGoogleCalendar();
+  const handleSyncPull = useCallback(() => {
+    window.dispatchEvent(new CustomEvent('hd-sync-loaded'));
+  }, []);
   const driveSync = useDriveSync({
     getToken: gcal.getToken,
-    onPullComplete: () => window.dispatchEvent(new CustomEvent('hd-sync-loaded')),
+    onPullComplete: handleSyncPull,
   });
   const [activeNav, setActiveNav] = useState('home');
 
