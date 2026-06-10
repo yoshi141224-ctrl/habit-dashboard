@@ -72,11 +72,14 @@ interface GWindow extends Window {
 
 export interface GoogleCalendarHook {
   connected: boolean;
+  isConnecting: boolean;
   syncing: boolean;
   lastError: string | null;
   clientId: string;
   setClientId: (id: string) => void;
   connect: () => Promise<void>;
+  /** Silent auto-connect — no popup. Returns true if connected. */
+  autoConnect: () => Promise<boolean>;
   disconnect: () => void;
   createEvent: (
     session: FocusSession,
@@ -91,13 +94,18 @@ export interface GoogleCalendarHook {
   deleteEvent: (gcalEventId: string) => Promise<void>;
 }
 
+const LS_BANNER_DISMISSED = 'hd_gcal_banner_dismissed';
+export const gcalBannerDismissed = () => localStorage.getItem(LS_BANNER_DISMISSED) === '1';
+export const dismissGcalBanner   = () => localStorage.setItem(LS_BANNER_DISMISSED, '1');
+
 export function useGoogleCalendar(): GoogleCalendarHook {
   const [clientId, setClientIdState] = useState(
     () => localStorage.getItem(LS_CLIENT_ID) ?? '',
   );
-  const [connected, setConnected]   = useState(false);
-  const [syncing,   setSyncing]     = useState(false);
-  const [lastError, setLastError]   = useState<string | null>(null);
+  const [connected,    setConnected]    = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [syncing,      setSyncing]      = useState(false);
+  const [lastError,    setLastError]    = useState<string | null>(null);
 
   const tokenRef       = useRef<string | null>(null);
   const tokenClientRef = useRef<TokenClient | null>(null);
@@ -117,6 +125,59 @@ export function useGoogleCalendar(): GoogleCalendarHook {
     localStorage.setItem(LS_CLIENT_ID, id);
   }
 
+  /** 共通トークン保存ヘルパー */
+  function _saveToken(resp: TokenResponse): boolean {
+    if (resp.error || !resp.access_token) return false;
+    tokenRef.current = resp.access_token;
+    const expiry = Date.now() + (resp.expires_in ?? 3600) * 1000;
+    localStorage.setItem(LS_ACCESS_TOKEN, resp.access_token);
+    localStorage.setItem(LS_TOKEN_EXPIRY, String(expiry));
+    setConnected(true);
+    setLastError(null);
+    return true;
+  }
+
+  /**
+   * サイレント自動接続 — ポップアップ不要。
+   * 既にユーザーが同意済みの場合はバックグラウンドでトークン取得。
+   * 返り値: 接続成功なら true
+   */
+  async function autoConnect(): Promise<boolean> {
+    const id = clientId.trim();
+    if (!id || connected || isConnecting) return connected;
+    setIsConnecting(true);
+    setLastError(null);
+    try {
+      await loadGIS();
+      return await new Promise<boolean>(resolve => {
+        // Record<string,unknown> にキャストすることで error_callback など
+        // TypeScript の型定義にない GIS オプションも渡せる
+        const config: Record<string, unknown> = {
+          client_id: id,
+          scope: 'https://www.googleapis.com/auth/calendar.events',
+          callback: (resp: TokenResponse) => {
+            const ok = _saveToken(resp);
+            setIsConnecting(false);
+            resolve(ok);
+          },
+          error_callback: () => {
+            // prompt:'none' でインタラクション必要なら静かに失敗
+            setIsConnecting(false);
+            resolve(false);
+          },
+        };
+        const client = (window as unknown as GWindow).google.accounts.oauth2.initTokenClient(config);
+        tokenClientRef.current = client;
+        // prompt: 'none' → ポップアップ一切なし
+        client.requestAccessToken({ prompt: 'none' });
+      });
+    } catch {
+      setIsConnecting(false);
+      return false;
+    }
+  }
+
+  /** 明示的接続 — Google アカウント選択ポップアップを表示 */
   async function connect() {
     const id = clientId.trim();
     if (!id) {
@@ -124,6 +185,7 @@ export function useGoogleCalendar(): GoogleCalendarHook {
       return;
     }
     setLastError(null);
+    setIsConnecting(true);
     try {
       await loadGIS();
       tokenClientRef.current = (window as unknown as GWindow).google.accounts.oauth2.initTokenClient({
@@ -132,21 +194,17 @@ export function useGoogleCalendar(): GoogleCalendarHook {
         callback: (resp: TokenResponse) => {
           if (resp.error) {
             setLastError(resp.error);
+            setIsConnecting(false);
             return;
           }
-          if (resp.access_token) {
-            tokenRef.current = resp.access_token;
-            const expiry = Date.now() + (resp.expires_in ?? 3600) * 1000;
-            localStorage.setItem(LS_ACCESS_TOKEN, resp.access_token);
-            localStorage.setItem(LS_TOKEN_EXPIRY, String(expiry));
-            setConnected(true);
-            setLastError(null);
-          }
+          _saveToken(resp);
+          setIsConnecting(false);
         },
       });
       tokenClientRef.current.requestAccessToken();
     } catch (e) {
       setLastError(e instanceof Error ? e.message : String(e));
+      setIsConnecting(false);
     }
   }
 
@@ -299,5 +357,5 @@ export function useGoogleCalendar(): GoogleCalendarHook {
     [],
   );
 
-  return { connected, syncing, lastError, clientId, setClientId, connect, disconnect, createEvent, createHabitEvent, deleteEvent };
+  return { connected, isConnecting, syncing, lastError, clientId, setClientId, connect, autoConnect, disconnect, createEvent, createHabitEvent, deleteEvent };
 }

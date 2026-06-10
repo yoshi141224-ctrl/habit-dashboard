@@ -4,8 +4,9 @@ import { useHabits } from './hooks/useHabits';
 import { useTasks } from './hooks/useTasks';
 import { useTimeLogs } from './hooks/useTimeLogs';
 import { useTimer } from './hooks/useTimer';
-import { useGoogleCalendar } from './hooks/useGoogleCalendar';
+import { useGoogleCalendar, gcalBannerDismissed, dismissGcalBanner } from './hooks/useGoogleCalendar';
 import LeftSidebar from './components/LeftSidebar';
+import GoogleCalendarBanner from './components/GoogleCalendarBanner';
 import StackedBarChart from './components/StackedBarChart';
 import BarChart from './components/BarChart';
 import HabitDiary from './components/HabitDiary';
@@ -25,6 +26,42 @@ export default function App() {
   const timeLogs = useTimeLogs();
   const gcal = useGoogleCalendar();
   const [activeNav, setActiveNav] = useState('home');
+
+  // GCal banner: show unless dismissed, hidden once connected
+  const [showGcalBanner, setShowGcalBanner] = useState(
+    () => !gcalBannerDismissed(),
+  );
+
+  // On mount: if clientId is stored, try silent auto-connect
+  useEffect(() => {
+    if (gcal.clientId && !gcal.connected) {
+      gcal.autoConnect().then(ok => {
+        if (ok) setShowGcalBanner(false); // connected silently → hide banner
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run once on mount
+
+  function handleGcalBannerConnect(): Promise<void> {
+    return gcal.connect();
+  }
+
+  function handleGcalBannerDismiss() {
+    dismissGcalBanner();
+    setShowGcalBanner(false);
+  }
+
+  // FocusTimer から「別のアカウントで変更」ボタン押下時
+  function handleGcalSwitchAccount() {
+    gcal.disconnect();
+    localStorage.removeItem('hd_gcal_banner_dismissed');
+    setShowGcalBanner(true);
+  }
+
+  // Hide banner when connected
+  useEffect(() => {
+    if (gcal.connected) setShowGcalBanner(false);
+  }, [gcal.connected]);
 
   // Selected item for the timer (habit or task)
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
@@ -243,6 +280,20 @@ export default function App() {
   const completedCount = (habits.completions[habits.selectedDate] ?? []).length;
 
   return (
+    <>
+      {/* Google Calendar connection banner — fixed at top, shown on first visit or when disconnected */}
+      {showGcalBanner && !gcal.connected && (
+        <GoogleCalendarBanner
+          hasClientId={!!gcal.clientId}
+          isConnecting={gcal.isConnecting}
+          lastError={gcal.lastError}
+          clientId={gcal.clientId}
+          onClientIdChange={gcal.setClientId}
+          onConnect={handleGcalBannerConnect}
+          onDismiss={handleGcalBannerDismiss}
+        />
+      )}
+
     <div className="app-layout">
       <LeftSidebar
         completionRate={habits.completionRate}
@@ -352,8 +403,10 @@ export default function App() {
         onGcalClientIdChange={gcal.setClientId}
         onGcalConnect={gcal.connect}
         onGcalDisconnect={gcal.disconnect}
+        onGcalSwitchAccount={handleGcalSwitchAccount}
         onDeleteSession={handleDeleteSession}
       />
     </div>
+    </>
   );
 }

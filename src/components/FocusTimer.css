@@ -301,6 +301,13 @@
 
 .ft-gcal-connected { display: flex; flex-direction: column; gap: 6px; }
 
+.ft-gcal-btns {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
 .ft-gcal-disconnect {
   background: none;
   border: 1px solid var(--bd-2, #DCD5CC);
@@ -314,6 +321,20 @@
   transition: border-color 0.15s, background 0.15s;
 }
 .ft-gcal-disconnect:hover { border-color: #C0392B; background: #FFF5F5; }
+
+.ft-gcal-switch {
+  background: none;
+  border: 1px solid var(--bd-2, #DCD5CC);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 10px;
+  color: var(--tx-3, #978780);
+  cursor: pointer;
+  font-family: inherit;
+  align-self: flex-start;
+  transition: border-color 0.15s, color 0.15s;
+}
+.ft-gcal-switch:hover { border-color: var(--bd-1); color: var(--tx-1); }
 
 .ft-gcal-error {
   font-size: 10px;

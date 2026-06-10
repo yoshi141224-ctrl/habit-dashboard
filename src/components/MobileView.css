@@ -304,7 +304,28 @@
 .mv-phone .sbc-card,
 .mv-phone .bc-card { margin: 0; }
 
-.mv-phone .hd-grid { grid-template-columns: 1fr 1fr; }
+.mv-phone .hd-grid { grid-template-columns: 1fr; }
+
+/* Compact button sizes inside phone frame — give habit names room to breathe.
+   Phone frame is only 390px wide; 2-col layout leaves ~16px for text (just 1 char).
+   1-col gives ~240px text width — all habit names visible. */
+.mv-phone .hd-checkbox-btn {
+  min-width: 32px;
+  min-height: 32px;
+}
+
+.mv-phone .hd-expand-btn {
+  min-width: 22px;
+  min-height: 22px;
+  padding: 2px;
+}
+
+.mv-phone .hd-kebab-btn {
+  min-width: 26px;
+  min-height: 26px;
+  padding: 2px;
+  opacity: 0.45;
+}
 
 .mv-phone .ctl-card { box-shadow: none; }
 

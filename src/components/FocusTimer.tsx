@@ -25,6 +25,7 @@ interface Props {
   onGcalClientIdChange: (id: string) => void;
   onGcalConnect: () => Promise<void>;
   onGcalDisconnect: () => void;
+  onGcalSwitchAccount: () => void;
   onDeleteSession?: (id: string) => void;
 }
 
@@ -47,7 +48,7 @@ export default function FocusTimer({
   pendingNotes, activeItemName, activeItemColor,
   onStart, onPause, onReset, onNotesChange, formatTime,
   gcalConnected, gcalSyncing, gcalLastError,
-  gcalClientId, onGcalClientIdChange, onGcalConnect, onGcalDisconnect,
+  gcalClientId, onGcalClientIdChange, onGcalConnect, onGcalDisconnect, onGcalSwitchAccount,
   onDeleteSession,
 }: Props) {
   const [mobileExpanded, setMobileExpanded] = useState(false);
@@ -313,9 +314,14 @@ export default function FocusTimer({
               <p className="ft-gcal-desc">
                 セッション終了時に自動でカレンダーに追加されます
               </p>
-              <button type="button" className="ft-gcal-disconnect" onClick={onGcalDisconnect}>
-                連携を解除
-              </button>
+              <div className="ft-gcal-btns">
+                <button type="button" className="ft-gcal-disconnect" onClick={onGcalDisconnect}>
+                  連携を解除
+                </button>
+                <button type="button" className="ft-gcal-switch" onClick={onGcalSwitchAccount}>
+                  別のアカウントで変更
+                </button>
+              </div>
             </div>
           )}
 
