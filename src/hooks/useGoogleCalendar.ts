@@ -184,6 +184,20 @@ export function useGoogleCalendar(): GoogleCalendarHook {
     }
   }, [clientId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Proactive token refresh: every 5 minutes check if the token expires within 10 minutes.
+  // If so, call autoConnect (silent prompt:none). Prevents sync from silently dying after 1 hour.
+  useEffect(() => {
+    const id = setInterval(() => {
+      const expiry = Number(localStorage.getItem(LS_TOKEN_EXPIRY) ?? 0);
+      const tenMinutes = 10 * 60 * 1000;
+      if (expiry && expiry - Date.now() < tenMinutes) {
+        // Token is about to expire — try silent refresh
+        autoConnect().catch(() => {});
+      }
+    }, 5 * 60 * 1000); // every 5 minutes
+    return () => clearInterval(id);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   function _initTokenClient() {
     const id = clientId.trim() || (localStorage.getItem(LS_CLIENT_ID) ?? '');
     if (!id) return;
@@ -226,33 +240,32 @@ export function useGoogleCalendar(): GoogleCalendarHook {
    */
   async function autoConnect(): Promise<boolean> {
     const id = clientId.trim();
-    if (!id || connected || isConnecting) return connected;
-    // iOS は redirect mode のため、自動リダイレクトは避ける
-    if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) return false;
+    if (!id || isConnecting) return connected;
+    if (connected && getToken()) return true; // still have a valid token
     setIsConnecting(true);
     setLastError(null);
     try {
       await loadGIS();
       return await new Promise<boolean>(resolve => {
-        // Record<string,unknown> にキャストすることで error_callback など
-        // TypeScript の型定義にない GIS オプションも渡せる
+        // 10-second timeout so iOS popup-blocked scenario never hangs
+        const timer = setTimeout(() => { setIsConnecting(false); resolve(false); }, 10_000);
         const config: Record<string, unknown> = {
           client_id: id,
           scope: 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/drive.appdata',
           callback: (resp: TokenResponse) => {
+            clearTimeout(timer);
             const ok = _saveToken(resp);
             setIsConnecting(false);
             resolve(ok);
           },
           error_callback: () => {
-            // prompt:'none' でインタラクション必要なら静かに失敗
+            clearTimeout(timer);
             setIsConnecting(false);
             resolve(false);
           },
         };
         const client = (window as unknown as GWindow).google.accounts.oauth2.initTokenClient(config);
-        tokenClientRef.current = client;
-        // prompt: 'none' → ポップアップ一切なし
+        // prompt:'none' — no popup/redirect, silent token refresh only
         client.requestAccessToken({ prompt: 'none' });
       });
     } catch {
@@ -299,7 +312,15 @@ export function useGoogleCalendar(): GoogleCalendarHook {
     setLastError(null);
   }
 
-  function getToken(): string | null { return tokenRef.current; }
+  function getToken(): string | null {
+    // Return null if token has expired so Drive requests aren't sent with stale token
+    const expiry = Number(localStorage.getItem(LS_TOKEN_EXPIRY) ?? 0);
+    if (expiry && Date.now() >= expiry) {
+      tokenRef.current = null;
+      return null;
+    }
+    return tokenRef.current;
+  }
 
   const createEvent = useCallback(
     async (session: FocusSession, itemName: string, itemColor: string | null): Promise<string | null> => {

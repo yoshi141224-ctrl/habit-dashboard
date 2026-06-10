@@ -29,9 +29,22 @@ export default function App() {
   const handleSyncPull = useCallback(() => {
     window.dispatchEvent(new CustomEvent('hd-sync-loaded'));
   }, []);
+  // When Drive gets a 401: token expired. Try silent refresh; if fails, disconnect + show banner.
+  const handleTokenExpired = useCallback(() => {
+    gcal.autoConnect().then(ok => {
+      if (!ok) {
+        gcal.disconnect();
+        localStorage.removeItem('hd_gcal_banner_dismissed');
+        // setShowGcalBanner is set below via gcal.connected effect
+      }
+    }).catch(() => {
+      gcal.disconnect();
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const driveSync = useDriveSync({
     getToken: gcal.getToken,
     onPullComplete: handleSyncPull,
+    onTokenExpired: handleTokenExpired,
   });
   const [activeNav, setActiveNav] = useState('home');
 
@@ -81,9 +94,14 @@ export default function App() {
     setShowGcalBanner(true);
   }
 
-  // Hide banner when connected
+  // Show/hide banner based on connection state
   useEffect(() => {
-    if (gcal.connected) setShowGcalBanner(false);
+    if (gcal.connected) {
+      setShowGcalBanner(false);
+    } else if (!gcalBannerDismissed()) {
+      // Token expired / disconnected → show reconnect banner
+      setShowGcalBanner(true);
+    }
   }, [gcal.connected]);
 
   // Start/stop Drive polling based on connection state

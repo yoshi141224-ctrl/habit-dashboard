@@ -4,10 +4,8 @@ const DRIVE_API = 'https://www.googleapis.com/drive/v3';
 const UPLOAD_API = 'https://www.googleapis.com/upload/drive/v3';
 const FILE_NAME = 'habit-dashboard-sync.json';
 const LS_FILE_ID = 'hd_drive_file_id';
-const LS_LAST_PULL = 'hd_drive_last_pull';
-const POLL_INTERVAL = 10_000; // 10 seconds (was 30)
+const POLL_INTERVAL = 10_000; // 10 seconds
 
-// All localStorage keys to sync
 const SYNC_KEYS = [
   'hd_habits', 'hd_completions', 'hd_sub_completions',
   'hd_tasks', 'hd_completed_tasks', 'hd_timelogs',
@@ -24,50 +22,61 @@ export interface DriveSyncData {
 interface Opts {
   getToken: () => string | null;
   onPullComplete: () => void;
+  onTokenExpired: () => void; // called on 401 — app should disconnect + prompt reconnect
 }
 
-export function useDriveSync({ getToken, onPullComplete }: Opts) {
+export function useDriveSync({ getToken, onPullComplete, onTokenExpired }: Opts) {
   const fileIdRef           = useRef<string | null>(localStorage.getItem(LS_FILE_ID));
   const pushTimerRef        = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollIntervalRef     = useRef<ReturnType<typeof setInterval> | null>(null);
   const isBusyRef           = useRef(false);
+  const isPushingRef        = useRef(false);
   const isPollingRef        = useRef(false);
-  // Set to false at startPolling(), true after first pull completes.
-  // Prevents pushing empty/stale local data before the initial pull finishes.
   const initialPullDoneRef  = useRef(true);
-  // Suppress push for N ms after a successful pull to avoid echo-back loops.
   const suppressPushUntilRef = useRef(0);
+
+  // Stable ref so visibility handler always uses latest pull
+  const pullRef = useRef<() => Promise<void>>(async () => {});
 
   async function driveRequest(url: string, opts?: RequestInit): Promise<Response> {
     const token = getToken();
     if (!token) throw new Error('Not connected');
-    return fetch(url, {
+    const res = await fetch(url, {
       ...opts,
       headers: { Authorization: `Bearer ${token}`, ...opts?.headers },
     });
+    if (res.status === 401) {
+      onTokenExpired(); // token expired → disconnect + prompt reconnect
+      throw new Error('Token expired (401)');
+    }
+    return res;
   }
 
   async function getFileId(): Promise<string | null> {
     if (fileIdRef.current) {
-      const r = await driveRequest(
-        `${DRIVE_API}/files/${fileIdRef.current}?spaces=appDataFolder&fields=id`
-      );
-      if (r.ok) return fileIdRef.current;
+      try {
+        const r = await driveRequest(
+          `${DRIVE_API}/files/${fileIdRef.current}?spaces=appDataFolder&fields=id`
+        );
+        if (r.ok) return fileIdRef.current;
+      } catch { /* 401 already handled above */ return null; }
       fileIdRef.current = null;
       localStorage.removeItem(LS_FILE_ID);
     }
-    const r = await driveRequest(
-      `${DRIVE_API}/files?spaces=appDataFolder&q=name='${FILE_NAME}'&fields=files(id,modifiedTime)`
-    );
-    if (!r.ok) return null;
-    const list = await r.json();
-    if (list.files?.length > 0) {
-      const id = list.files[0].id;
-      fileIdRef.current = id;
-      localStorage.setItem(LS_FILE_ID, id);
-      return id;
-    }
-    return null;
+    try {
+      const r = await driveRequest(
+        `${DRIVE_API}/files?spaces=appDataFolder&q=name='${FILE_NAME}'&fields=files(id,modifiedTime)`
+      );
+      if (!r.ok) return null;
+      const list = await r.json();
+      if (list.files?.length > 0) {
+        const id = list.files[0].id;
+        fileIdRef.current = id;
+        localStorage.setItem(LS_FILE_ID, id);
+        return id;
+      }
+      return null;
+    } catch { return null; }
   }
 
   async function createFile(): Promise<string> {
@@ -94,46 +103,48 @@ export function useDriveSync({ getToken, onPullComplete }: Opts) {
     try {
       const id = await getFileId();
       if (!id) {
-        // No Drive file yet — first time user. OK to push.
-        initialPullDoneRef.current = true;
+        initialPullDoneRef.current = true; // no file yet — first-time user, OK to push
         return;
       }
-      const r = await driveRequest(`${DRIVE_API}/files/${id}?alt=media`);
-      if (!r.ok) {
-        initialPullDoneRef.current = true;
-        return;
-      }
-      const remote: DriveSyncData = await r.json();
-      const lastPull = Number(localStorage.getItem(LS_LAST_PULL) ?? 0);
+      let r: Response;
+      try {
+        r = await driveRequest(`${DRIVE_API}/files/${id}?alt=media`);
+      } catch { return; } // 401 already handled in driveRequest
+      if (!r.ok) { initialPullDoneRef.current = true; return; }
 
-      // Mark initial pull done regardless of whether data changed
+      const remote: DriveSyncData = await r.json();
       initialPullDoneRef.current = true;
 
-      if (remote.lastModified <= lastPull && remote.lastModified > 0) return; // nothing new
-
-      // Write pulled data to localStorage
+      // Compare data contents (not timestamps) to avoid clock-skew false negatives
+      let changed = false;
       for (const [key, value] of Object.entries(remote.data)) {
-        if (value !== undefined && value !== null) {
-          localStorage.setItem(key, JSON.stringify(value));
+        if (value === undefined || value === null) continue;
+        const incoming = JSON.stringify(value);
+        if (localStorage.getItem(key) !== incoming) {
+          localStorage.setItem(key, incoming);
+          changed = true;
         }
       }
-      localStorage.setItem(LS_LAST_PULL, String(remote.lastModified));
+      if (!changed) return;
 
-      // Suppress echo-back push for 2 s so we don't immediately re-upload pulled data
-      suppressPushUntilRef.current = Date.now() + 2000;
-
+      // Suppress echo-back push for 3 s so we don't immediately re-upload pulled data
+      suppressPushUntilRef.current = Date.now() + 3000;
       onPullComplete();
     } catch (e) {
       console.warn('[DriveSync] pull error:', e);
-      initialPullDoneRef.current = true; // don't block push forever on error
+      initialPullDoneRef.current = true;
     } finally {
       isBusyRef.current = false;
     }
   }, [getToken, onPullComplete]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Keep pullRef up to date for the visibility handler
+  useEffect(() => { pullRef.current = pull; }, [pull]);
+
   const push = useCallback(async () => {
     const token = getToken();
-    if (!token) return;
+    if (!token || isPushingRef.current) return;
+    isPushingRef.current = true;
     try {
       let id = await getFileId();
       if (!id) id = await createFile();
@@ -152,30 +163,32 @@ export function useDriveSync({ getToken, onPullComplete }: Opts) {
       const form = new FormData();
       form.append('metadata', new Blob(['{}'], { type: 'application/json' }));
       form.append('media', new Blob([JSON.stringify(payload)], { type: 'application/json' }));
-      await driveRequest(
-        `${UPLOAD_API}/files/${id}?uploadType=multipart`,
-        { method: 'PATCH', body: form }
-      );
+      try {
+        await driveRequest(
+          `${UPLOAD_API}/files/${id}?uploadType=multipart`,
+          { method: 'PATCH', body: form }
+        );
+      } catch { /* 401 handled */ }
     } catch (e) {
       console.warn('[DriveSync] push error:', e);
+    } finally {
+      isPushingRef.current = false;
     }
   }, [getToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const schedulePush = useCallback(() => {
-    // Don't push before the initial pull has had a chance to run
-    if (!initialPullDoneRef.current) return;
-    // Don't echo-back data that was just pulled from Drive
-    if (Date.now() < suppressPushUntilRef.current) return;
+    if (!initialPullDoneRef.current) return; // wait for first pull
+    if (Date.now() < suppressPushUntilRef.current) return; // just pulled
     if (pushTimerRef.current) clearTimeout(pushTimerRef.current);
     pushTimerRef.current = setTimeout(push, 3000);
   }, [push]);
 
   function startPolling() {
-    if (isPollingRef.current) return; // already polling
+    if (isPollingRef.current) return;
     isPollingRef.current = true;
-    initialPullDoneRef.current = false; // must pull before push allowed
+    initialPullDoneRef.current = false;
     pull();
-    pollIntervalRef.current = setInterval(pull, POLL_INTERVAL);
+    pollIntervalRef.current = setInterval(() => pullRef.current(), POLL_INTERVAL);
   }
 
   function stopPolling() {
@@ -186,16 +199,16 @@ export function useDriveSync({ getToken, onPullComplete }: Opts) {
     pushTimerRef.current = null;
   }
 
-  // Pull immediately when the tab becomes visible (user switches back to the app)
+  // Pull immediately when the user switches back to this tab
   useEffect(() => {
     function onVisibility() {
       if (document.visibilityState === 'visible' && isPollingRef.current) {
-        pull();
+        pullRef.current();
       }
     }
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
-  }, [pull]);
+  }, []);
 
   useEffect(() => () => stopPolling(), []); // eslint-disable-line react-hooks/exhaustive-deps
 
