@@ -110,15 +110,41 @@ export function useGoogleCalendar(): GoogleCalendarHook {
   const tokenRef       = useRef<string | null>(null);
   const tokenClientRef = useRef<TokenClient | null>(null);
 
-  // Restore token from localStorage on mount
   useEffect(() => {
+    // ── 1. OAuth リダイレクト返り処理 ──────────────────────────────
+    // iOS Safari はポップアップをブロックし、代わりにページ全体をリダイレクトする。
+    // Google 認証後、#access_token=... が URL ハッシュに返ってくるので取り出す。
+    const hash = window.location.hash;
+    if (hash.includes('access_token=')) {
+      const params = new URLSearchParams(hash.slice(1)); // '#' を除く
+      const token = params.get('access_token');
+      const expiresIn = Number(params.get('expires_in') ?? 3600);
+      if (token) {
+        tokenRef.current = token;
+        const expiry = Date.now() + expiresIn * 1000;
+        localStorage.setItem(LS_ACCESS_TOKEN, token);
+        localStorage.setItem(LS_TOKEN_EXPIRY, String(expiry));
+        setConnected(true);
+        // URL のハッシュを削除して clean URL に戻す
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        return; // localStorage 復元は不要
+      }
+    }
+
+    // ── 2. localStorage からトークン復元 ──────────────────────────
     const token  = localStorage.getItem(LS_ACCESS_TOKEN);
     const expiry = Number(localStorage.getItem(LS_TOKEN_EXPIRY) ?? 0);
     if (token && Date.now() < expiry) {
       tokenRef.current = token;
       setConnected(true);
     }
-  }, []);
+
+    // ── 3. GIS スクリプトをプリロード ─────────────────────────────
+    // iOS Safari では、ユーザー操作 → async 処理 → window.open() の順だと
+    // ポップアップがブロックされる。事前ロードしておくことで
+    // connect() 内の await loadGIS() が即座に解決し、ポップアップが開く。
+    loadGIS().catch(() => {});
+  }, []); // マウント時1回のみ
 
   function setClientId(id: string) {
     setClientIdState(id);
@@ -177,7 +203,7 @@ export function useGoogleCalendar(): GoogleCalendarHook {
     }
   }
 
-  /** 明示的接続 — Google アカウント選択ポップアップを表示 */
+  /** 明示的接続 — ポップアップ優先、ブロック時はリダイレクトにフォールバック */
   async function connect() {
     const id = clientId.trim();
     if (!id) {
@@ -186,26 +212,59 @@ export function useGoogleCalendar(): GoogleCalendarHook {
     }
     setLastError(null);
     setIsConnecting(true);
-    try {
-      await loadGIS();
-      tokenClientRef.current = (window as unknown as GWindow).google.accounts.oauth2.initTokenClient({
+
+    // GIS が既にプリロード済みなら await はほぼ即時解決
+    const gisOk = await loadGIS().then(() => true).catch(() => false);
+
+    if (gisOk) {
+      // ── GIS ポップアップフロー ───────────────────────────────────
+      const config: Record<string, unknown> = {
         client_id: id,
         scope: 'https://www.googleapis.com/auth/calendar.events',
         callback: (resp: TokenResponse) => {
           if (resp.error) {
-            setLastError(resp.error);
-            setIsConnecting(false);
+            // ポップアップがブロックされた / キャンセルされた場合は
+            // リダイレクトフローにフォールバック
+            if (resp.error === 'popup_closed_by_user' || resp.error === 'popup_failed_to_open') {
+              _redirectConnect(id);
+            } else {
+              setLastError(resp.error);
+              setIsConnecting(false);
+            }
             return;
           }
           _saveToken(resp);
           setIsConnecting(false);
         },
-      });
-      tokenClientRef.current.requestAccessToken();
-    } catch (e) {
-      setLastError(e instanceof Error ? e.message : String(e));
-      setIsConnecting(false);
+        error_callback: () => {
+          // ポップアップ失敗 → リダイレクトフォールバック
+          _redirectConnect(id);
+        },
+      };
+      try {
+        const client = (window as unknown as GWindow).google.accounts.oauth2.initTokenClient(config);
+        tokenClientRef.current = client;
+        client.requestAccessToken();
+      } catch {
+        _redirectConnect(id);
+      }
+    } else {
+      // GIS ロード失敗 → リダイレクトフォールバック
+      _redirectConnect(id);
     }
+  }
+
+  /** リダイレクト型 OAuth フロー（モバイルでポップアップがブロックされた場合） */
+  function _redirectConnect(id: string) {
+    const redirectUri = window.location.origin + window.location.pathname;
+    const params = new URLSearchParams({
+      client_id: id,
+      redirect_uri: redirectUri,
+      response_type: 'token',
+      scope: 'https://www.googleapis.com/auth/calendar.events',
+      include_granted_scopes: 'true',
+    });
+    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
   }
 
   function disconnect() {

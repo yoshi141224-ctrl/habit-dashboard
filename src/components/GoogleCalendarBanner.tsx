@@ -21,18 +21,18 @@ export default function GoogleCalendarBanner({
   onConnect,
   onDismiss,
 }: Props) {
-  const [showInput, setShowInput] = useState(!hasClientId);
+  const [showSetup, setShowSetup] = useState(false);
 
   return (
     <div className="gcb-root">
       <div className="gcb-inner">
-        {/* Icon + message */}
+
+        {/* ── Header ── */}
         <div className="gcb-head">
-          <span className="gcb-icon">
-            {/* Google Calendar icon (simplified) */}
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+          <span className="gcb-icon" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
               stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+              <rect x="3" y="4" width="18" height="18" rx="2"/>
               <line x1="16" y1="2" x2="16" y2="6"/>
               <line x1="8" y1="2" x2="8" y2="6"/>
               <line x1="3" y1="10" x2="21" y2="10"/>
@@ -42,68 +42,70 @@ export default function GoogleCalendarBanner({
             {hasClientId ? (
               <>
                 <p className="gcb-title">Google カレンダーと連携しますか？</p>
-                <p className="gcb-desc">以前設定した Client ID が見つかりました。ワンタップで再接続できます。</p>
+                <p className="gcb-desc">タップするだけで習慣チェックやセッションをカレンダーに自動記録。</p>
               </>
             ) : (
               <>
                 <p className="gcb-title">Google カレンダーを連携する</p>
-                <p className="gcb-desc">習慣チェックやフォーカスセッションをカレンダーに自動記録できます。</p>
+                <p className="gcb-desc">習慣チェックやフォーカスセッションをカレンダーに記録できます。</p>
               </>
             )}
           </div>
           <button type="button" className="gcb-close" onClick={onDismiss} aria-label="閉じる">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <line x1="18" y1="6" x2="6" y2="18"/>
               <line x1="6" y1="6" x2="18" y2="18"/>
             </svg>
           </button>
         </div>
 
-        {/* Setup form (Client ID input) */}
-        {showInput && (
+        {/* ── Client ID 入力（初回 or 変更時のみ） ── */}
+        {(!hasClientId || showSetup) && (
           <div className="gcb-setup">
-            <p className="gcb-setup-hint">
-              <a
-                href="https://console.cloud.google.com/apis/credentials"
-                target="_blank"
-                rel="noreferrer"
-                className="gcb-link"
-              >Google Cloud Console</a> で OAuth 2.0 クライアント ID を作成し、
-              <strong>承認済みの JavaScript 生成元</strong>に
-              <code>https://yoshi141224-ctrl.github.io</code> を追加してください。
-            </p>
+            <p className="gcb-setup-label">Google Cloud Console の OAuth クライアント ID</p>
             <input
               className="gcb-input"
               type="text"
               placeholder="xxxxxx.apps.googleusercontent.com"
               value={clientId}
               onChange={e => onClientIdChange(e.target.value)}
-              autoFocus
+              autoFocus={!hasClientId}
             />
+            <a
+              href="https://console.cloud.google.com/apis/credentials"
+              target="_blank"
+              rel="noreferrer"
+              className="gcb-help-link"
+            >
+              クライアント ID の取得方法 →
+            </a>
           </div>
         )}
 
-        {/* Error */}
+        {/* ── エラー ── */}
         {lastError && (
           <p className="gcb-error">⚠ {lastError}</p>
         )}
 
-        {/* Actions */}
+        {/* ── ボタン群 ── */}
         <div className="gcb-actions">
-          {hasClientId && !showInput && (
+          {/* 変更ボタン（設定済みでセットアップ非表示の場合） */}
+          {hasClientId && !showSetup && (
             <button
               type="button"
               className="gcb-btn-secondary"
-              onClick={() => setShowInput(true)}
+              onClick={() => setShowSetup(true)}
             >
-              別のアカウントで設定
+              ID を変更
             </button>
           )}
+
+          {/* 連携ボタン */}
           <button
             type="button"
             className="gcb-btn-connect"
             onClick={onConnect}
-            disabled={isConnecting || (!hasClientId && !clientId.trim())}
+            disabled={isConnecting || (!hasClientId && !clientId.trim() && !showSetup)}
           >
             {isConnecting ? (
               <>
@@ -112,19 +114,22 @@ export default function GoogleCalendarBanner({
               </>
             ) : (
               <>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="9 11 12 14 22 4"/>
-                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                  <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+                  <polyline points="10 17 15 12 10 7"/>
+                  <line x1="15" y1="12" x2="3" y2="12"/>
                 </svg>
                 Google で連携する
               </>
             )}
           </button>
+
           <button type="button" className="gcb-btn-skip" onClick={onDismiss}>
             後で
           </button>
         </div>
+
       </div>
     </div>
   );

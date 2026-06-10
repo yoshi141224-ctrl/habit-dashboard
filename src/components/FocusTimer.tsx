@@ -21,8 +21,6 @@ interface Props {
   gcalConnected: boolean;
   gcalSyncing: boolean;
   gcalLastError: string | null;
-  gcalClientId: string;
-  onGcalClientIdChange: (id: string) => void;
   onGcalConnect: () => Promise<void>;
   onGcalDisconnect: () => void;
   onGcalSwitchAccount: () => void;
@@ -48,11 +46,10 @@ export default function FocusTimer({
   pendingNotes, activeItemName, activeItemColor,
   onStart, onPause, onReset, onNotesChange, formatTime,
   gcalConnected, gcalSyncing, gcalLastError,
-  gcalClientId, onGcalClientIdChange, onGcalConnect, onGcalDisconnect, onGcalSwitchAccount,
+  onGcalConnect, onGcalDisconnect, onGcalSwitchAccount,
   onDeleteSession,
 }: Props) {
   const [mobileExpanded, setMobileExpanded] = useState(false);
-  const [showGcalSetup, setShowGcalSetup] = useState(false);
   const touchStartY = useRef<number | null>(null);
   const touchStartTime = useRef<number>(0);
 
@@ -294,18 +291,10 @@ export default function FocusTimer({
               </svg>
               Google Calendar
             </h3>
-            {gcalConnected ? (
+            {gcalConnected && (
               <span className="ft-gcal-badge ft-gcal-badge--on">
                 {gcalSyncing ? '同期中…' : '連携済み ✓'}
               </span>
-            ) : (
-              <button
-                type="button"
-                className="ft-gcal-toggle"
-                onClick={() => setShowGcalSetup(v => !v)}
-              >
-                {showGcalSetup ? '▲' : '設定'}
-              </button>
             )}
           </div>
 
@@ -325,26 +314,21 @@ export default function FocusTimer({
             </div>
           )}
 
-          {!gcalConnected && showGcalSetup && (
-            <div className="ft-gcal-setup">
-              <p className="ft-gcal-desc">
-                Google Cloud Console で OAuth 2.0 クライアント ID を取得してください。<br/>
-                承認済みの JavaScript 生成元に <strong>https://yoshi141224-ctrl.github.io</strong> を追加してください。
-              </p>
-              <input
-                className="ft-gcal-input"
-                type="text"
-                placeholder="xxxxxx.apps.googleusercontent.com"
-                value={gcalClientId}
-                onChange={e => onGcalClientIdChange(e.target.value)}
-              />
+          {!gcalConnected && (
+            <div className="ft-gcal-disconnected">
               <button
                 type="button"
                 className="ft-gcal-connect-btn"
                 onClick={onGcalConnect}
-                disabled={!gcalClientId.trim()}
               >
-                Google で認証
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                  style={{ display: 'inline', verticalAlign: 'middle', marginRight: 5 }}
+                >
+                  <polyline points="9 11 12 14 22 4"/>
+                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                </svg>
+                Google で連携する
               </button>
             </div>
           )}

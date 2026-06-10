@@ -301,6 +301,8 @@
 
 .ft-gcal-connected { display: flex; flex-direction: column; gap: 6px; }
 
+.ft-gcal-disconnected { padding-top: 2px; }
+
 .ft-gcal-btns {
   display: flex;
   gap: 6px;

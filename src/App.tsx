@@ -46,6 +46,21 @@ export default function App() {
     return gcal.connect();
   }
 
+  /** バナーを再表示（FocusTimer の「Google で連携する」ボタンから、ClientID 未登録の場合） */
+  function handleGcalShowBanner() {
+    localStorage.removeItem('hd_gcal_banner_dismissed');
+    setShowGcalBanner(true);
+  }
+
+  /** FocusTimer の「Google で連携する」ボタン — ClientID 設定済みならそのまま接続、未設定ならバナー表示 */
+  function handleTimerGcalConnect(): Promise<void> {
+    if (!gcal.clientId) {
+      handleGcalShowBanner();
+      return Promise.resolve();
+    }
+    return gcal.connect();
+  }
+
   function handleGcalBannerDismiss() {
     dismissGcalBanner();
     setShowGcalBanner(false);
@@ -399,9 +414,7 @@ export default function App() {
         gcalConnected={gcal.connected}
         gcalSyncing={gcal.syncing}
         gcalLastError={gcal.lastError}
-        gcalClientId={gcal.clientId}
-        onGcalClientIdChange={gcal.setClientId}
-        onGcalConnect={gcal.connect}
+        onGcalConnect={handleTimerGcalConnect}
         onGcalDisconnect={gcal.disconnect}
         onGcalSwitchAccount={handleGcalSwitchAccount}
         onDeleteSession={handleDeleteSession}

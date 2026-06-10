@@ -713,24 +713,38 @@
     font-size: 18px;
   }
 
+  /* 1 column on real mobile — 2 col leaves only ~18px for text (just 1-2 chars) */
   .hd-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr;
     gap: 8px;
   }
 
   .hd-cell { padding: 10px 8px; min-width: 0; overflow: hidden; }
 
-  .hd-habit-name { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hd-habit-name { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .hd-habit-detail { font-size: 10px; white-space: normal; word-break: break-word; }
   .hd-cell-text { min-width: 0; overflow: hidden; }
   .hd-spent { font-size: 9px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+  /* Compact button sizes so text has room (~240px with 1 col) */
   .hd-checkbox-btn {
-    min-width: 44px;
-    min-height: 44px;
+    min-width: 34px;
+    min-height: 34px;
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+
+  .hd-expand-btn {
+    min-width: 26px;
+    min-height: 26px;
+    padding: 3px;
+  }
+
+  .hd-kebab-btn {
+    min-width: 30px;
+    min-height: 30px;
+    padding: 3px;
   }
 
   .hd-add-btn-header {
