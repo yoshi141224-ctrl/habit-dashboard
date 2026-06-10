@@ -78,6 +78,17 @@ export function useHabits() {
     localStorage.setItem(LS_SUB_COMPLETIONS, JSON.stringify(subCompletions));
   }, [subCompletions]);
 
+  // Reload from localStorage when Drive sync pulls new data
+  useEffect(() => {
+    function onSyncLoaded() {
+      setHabits(load(LS_HABITS, defaultHabits));
+      setCompletions(load(LS_COMPLETIONS, generateSeedCompletions(defaultHabits)));
+      setSubCompletions(load(LS_SUB_COMPLETIONS, {}));
+    }
+    window.addEventListener('hd-sync-loaded', onSyncLoaded);
+    return () => window.removeEventListener('hd-sync-loaded', onSyncLoaded);
+  }, []);
+
   const todayCompletions = completions[selectedDate] ?? [];
 
   const completionRate = habits.length > 0

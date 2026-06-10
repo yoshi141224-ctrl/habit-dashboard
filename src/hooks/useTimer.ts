@@ -35,6 +35,14 @@ export function useTimer({ onComplete, onSessionSaved }: TimerOptions = {}) {
   }, [sessions]);
 
   useEffect(() => {
+    function onSyncLoaded() {
+      setSessions(load(LS_SESSIONS, []));
+    }
+    window.addEventListener('hd-sync-loaded', onSyncLoaded);
+    return () => window.removeEventListener('hd-sync-loaded', onSyncLoaded);
+  }, []);
+
+  useEffect(() => {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };

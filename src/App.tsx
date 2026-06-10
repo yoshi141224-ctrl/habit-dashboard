@@ -5,6 +5,7 @@ import { useTasks } from './hooks/useTasks';
 import { useTimeLogs } from './hooks/useTimeLogs';
 import { useTimer } from './hooks/useTimer';
 import { useGoogleCalendar, gcalBannerDismissed, dismissGcalBanner } from './hooks/useGoogleCalendar';
+import { useDriveSync } from './hooks/useDriveSync';
 import LeftSidebar from './components/LeftSidebar';
 import GoogleCalendarBanner from './components/GoogleCalendarBanner';
 import StackedBarChart from './components/StackedBarChart';
@@ -25,6 +26,10 @@ export default function App() {
   const tasks = useTasks();
   const timeLogs = useTimeLogs();
   const gcal = useGoogleCalendar();
+  const driveSync = useDriveSync({
+    getToken: gcal.getToken,
+    onPullComplete: () => window.dispatchEvent(new CustomEvent('hd-sync-loaded')),
+  });
   const [activeNav, setActiveNav] = useState('home');
 
   // GCal banner: show unless dismissed, hidden once connected
@@ -77,6 +82,31 @@ export default function App() {
   useEffect(() => {
     if (gcal.connected) setShowGcalBanner(false);
   }, [gcal.connected]);
+
+  // Start/stop Drive polling based on connection state
+  useEffect(() => {
+    if (gcal.connected) {
+      driveSync.startPolling();
+    } else {
+      driveSync.stopPolling();
+    }
+  }, [gcal.connected]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Push to Drive when any data changes (debounced 3s)
+  const allDataForSync = useMemo(() => ({
+    habits: habits.habits,
+    completions: habits.completions,
+    subCompletions: habits.subCompletions,
+    tasks: tasks.tasks,
+    completedTasks: tasks.completedTasks,
+    timeLogs: timeLogs.timeLogs,
+  }), [habits.habits, habits.completions, habits.subCompletions,
+      tasks.tasks, tasks.completedTasks,
+      timeLogs.timeLogs]);
+
+  useEffect(() => {
+    if (gcal.connected) driveSync.schedulePush();
+  }, [allDataForSync]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Selected item for the timer (habit or task)
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
@@ -318,6 +348,14 @@ export default function App() {
         donutSegments={donutSegments}
         activeNav={activeNav}
         onNavChange={setActiveNav}
+        gcalConnected={gcal.connected}
+        onGcalConnect={() => {
+          if (!gcal.clientId) {
+            handleGcalShowBanner();
+          } else {
+            gcal.connect();
+          }
+        }}
       />
 
       <main className="center-area">

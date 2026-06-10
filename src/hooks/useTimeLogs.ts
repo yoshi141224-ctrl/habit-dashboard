@@ -47,6 +47,14 @@ export function useTimeLogs() {
     localStorage.setItem(LS_TIMELOGS, JSON.stringify(timeLogs));
   }, [timeLogs]);
 
+  useEffect(() => {
+    function onSyncLoaded() {
+      setTimeLogs(load(LS_TIMELOGS, generateSeedTimeLogs()));
+    }
+    window.addEventListener('hd-sync-loaded', onSyncLoaded);
+    return () => window.removeEventListener('hd-sync-loaded', onSyncLoaded);
+  }, []);
+
   function addTime(date: string, itemId: string, seconds: number) {
     if (seconds <= 0) return;
     setTimeLogs(prev => {

@@ -35,6 +35,15 @@ export function useTasks() {
     localStorage.setItem(LS_COMPLETED_TASKS, JSON.stringify(completedTasks));
   }, [completedTasks]);
 
+  useEffect(() => {
+    function onSyncLoaded() {
+      setTasks(load(LS_TASKS, defaultTasks));
+      setCompletedTasks(load(LS_COMPLETED_TASKS, []));
+    }
+    window.addEventListener('hd-sync-loaded', onSyncLoaded);
+    return () => window.removeEventListener('hd-sync-loaded', onSyncLoaded);
+  }, []);
+
   // Complete a task: move to pending for 5s (undo window), then commit to completed log
   function toggleTask(taskId: string) {
     const task = tasks.find(t => t.id === taskId);

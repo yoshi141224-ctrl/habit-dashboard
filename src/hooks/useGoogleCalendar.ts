@@ -81,6 +81,7 @@ export interface GoogleCalendarHook {
   /** Silent auto-connect — no popup. Returns true if connected. */
   autoConnect: () => Promise<boolean>;
   disconnect: () => void;
+  getToken: () => string | null;
   createEvent: (
     session: FocusSession,
     itemName: string,
@@ -110,13 +111,35 @@ export function useGoogleCalendar(): GoogleCalendarHook {
   const tokenRef       = useRef<string | null>(null);
   const tokenClientRef = useRef<TokenClient | null>(null);
 
+  // Stable callback refs — always point to latest closures
+  const callbackRef    = useRef<((resp: TokenResponse) => void) | null>(null);
+  const errCallbackRef = useRef<(() => void) | null>(null);
+
+  // Called on every render to keep callbacks fresh
+  function _updateCallbacks() {
+    callbackRef.current = (resp: TokenResponse) => {
+      if (resp.error) {
+        if (resp.error !== 'popup_closed_by_user') {
+          _redirectConnect(clientId.trim());
+        } else {
+          setIsConnecting(false);
+        }
+        return;
+      }
+      _saveToken(resp);
+      setIsConnecting(false);
+    };
+    errCallbackRef.current = () => {
+      _redirectConnect(clientId.trim());
+    };
+  }
+  _updateCallbacks();
+
   useEffect(() => {
-    // ── 1. OAuth リダイレクト返り処理 ──────────────────────────────
-    // iOS Safari はポップアップをブロックし、代わりにページ全体をリダイレクトする。
-    // Google 認証後、#access_token=... が URL ハッシュに返ってくるので取り出す。
+    // 1. Handle OAuth redirect return
     const hash = window.location.hash;
     if (hash.includes('access_token=')) {
-      const params = new URLSearchParams(hash.slice(1)); // '#' を除く
+      const params = new URLSearchParams(hash.slice(1));
       const token = params.get('access_token');
       const expiresIn = Number(params.get('expires_in') ?? 3600);
       if (token) {
@@ -125,26 +148,42 @@ export function useGoogleCalendar(): GoogleCalendarHook {
         localStorage.setItem(LS_ACCESS_TOKEN, token);
         localStorage.setItem(LS_TOKEN_EXPIRY, String(expiry));
         setConnected(true);
-        // URL のハッシュを削除して clean URL に戻す
         window.history.replaceState(null, '', window.location.pathname + window.location.search);
-        return; // localStorage 復元は不要
+        return;
       }
     }
-
-    // ── 2. localStorage からトークン復元 ──────────────────────────
-    const token  = localStorage.getItem(LS_ACCESS_TOKEN);
+    // 2. Restore cached token
+    const token = localStorage.getItem(LS_ACCESS_TOKEN);
     const expiry = Number(localStorage.getItem(LS_TOKEN_EXPIRY) ?? 0);
     if (token && Date.now() < expiry) {
       tokenRef.current = token;
       setConnected(true);
     }
+    // 3. Pre-load GIS so token client can be initialized eagerly
+    loadGIS().then(() => _initTokenClient()).catch(() => {});
+  }, []); // mount only
 
-    // ── 3. GIS スクリプトをプリロード ─────────────────────────────
-    // iOS Safari では、ユーザー操作 → async 処理 → window.open() の順だと
-    // ポップアップがブロックされる。事前ロードしておくことで
-    // connect() 内の await loadGIS() が即座に解決し、ポップアップが開く。
-    loadGIS().catch(() => {});
-  }, []); // マウント時1回のみ
+  // Re-init when clientId changes
+  useEffect(() => {
+    if (clientId) {
+      tokenClientRef.current = null; // reset
+      loadGIS().then(() => _initTokenClient()).catch(() => {});
+    }
+  }, [clientId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function _initTokenClient() {
+    const id = clientId.trim() || (localStorage.getItem(LS_CLIENT_ID) ?? '');
+    if (!id) return;
+    const gw = window as unknown as GWindow;
+    if (!gw.google?.accounts?.oauth2) return;
+    if (tokenClientRef.current) return;
+    tokenClientRef.current = gw.google.accounts.oauth2.initTokenClient({
+      client_id: id,
+      scope: 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/drive.appdata',
+      callback: (resp: TokenResponse) => callbackRef.current?.(resp),
+      error_callback: () => errCallbackRef.current?.(),
+    } as Record<string, unknown>);
+  }
 
   function setClientId(id: string) {
     setClientIdState(id);
@@ -180,7 +219,7 @@ export function useGoogleCalendar(): GoogleCalendarHook {
         // TypeScript の型定義にない GIS オプションも渡せる
         const config: Record<string, unknown> = {
           client_id: id,
-          scope: 'https://www.googleapis.com/auth/calendar.events',
+          scope: 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/drive.appdata',
           callback: (resp: TokenResponse) => {
             const ok = _saveToken(resp);
             setIsConnecting(false);
@@ -203,57 +242,6 @@ export function useGoogleCalendar(): GoogleCalendarHook {
     }
   }
 
-  /** 明示的接続 — ポップアップ優先、ブロック時はリダイレクトにフォールバック */
-  async function connect() {
-    const id = clientId.trim();
-    if (!id) {
-      setLastError('Google Client ID を入力してください');
-      return;
-    }
-    setLastError(null);
-    setIsConnecting(true);
-
-    // GIS が既にプリロード済みなら await はほぼ即時解決
-    const gisOk = await loadGIS().then(() => true).catch(() => false);
-
-    if (gisOk) {
-      // ── GIS ポップアップフロー ───────────────────────────────────
-      const config: Record<string, unknown> = {
-        client_id: id,
-        scope: 'https://www.googleapis.com/auth/calendar.events',
-        callback: (resp: TokenResponse) => {
-          if (resp.error) {
-            // ポップアップがブロックされた / キャンセルされた場合は
-            // リダイレクトフローにフォールバック
-            if (resp.error === 'popup_closed_by_user' || resp.error === 'popup_failed_to_open') {
-              _redirectConnect(id);
-            } else {
-              setLastError(resp.error);
-              setIsConnecting(false);
-            }
-            return;
-          }
-          _saveToken(resp);
-          setIsConnecting(false);
-        },
-        error_callback: () => {
-          // ポップアップ失敗 → リダイレクトフォールバック
-          _redirectConnect(id);
-        },
-      };
-      try {
-        const client = (window as unknown as GWindow).google.accounts.oauth2.initTokenClient(config);
-        tokenClientRef.current = client;
-        client.requestAccessToken();
-      } catch {
-        _redirectConnect(id);
-      }
-    } else {
-      // GIS ロード失敗 → リダイレクトフォールバック
-      _redirectConnect(id);
-    }
-  }
-
   /** リダイレクト型 OAuth フロー（モバイルでポップアップがブロックされた場合） */
   function _redirectConnect(id: string) {
     const redirectUri = window.location.origin + window.location.pathname;
@@ -261,10 +249,27 @@ export function useGoogleCalendar(): GoogleCalendarHook {
       client_id: id,
       redirect_uri: redirectUri,
       response_type: 'token',
-      scope: 'https://www.googleapis.com/auth/calendar.events',
+      scope: 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/drive.appdata',
       include_granted_scopes: 'true',
     });
     window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+  }
+
+  // SYNCHRONOUS connect — no await, so iOS user gesture context is preserved
+  function connect(): Promise<void> {
+    const id = clientId.trim();
+    if (!id) {
+      setLastError('Google Client ID を入力してください');
+      return Promise.resolve();
+    }
+    setLastError(null);
+    setIsConnecting(true);
+    if (tokenClientRef.current) {
+      tokenClientRef.current.requestAccessToken();
+    } else {
+      _redirectConnect(id);
+    }
+    return Promise.resolve();
   }
 
   function disconnect() {
@@ -274,6 +279,8 @@ export function useGoogleCalendar(): GoogleCalendarHook {
     setConnected(false);
     setLastError(null);
   }
+
+  function getToken(): string | null { return tokenRef.current; }
 
   const createEvent = useCallback(
     async (session: FocusSession, itemName: string, itemColor: string | null): Promise<string | null> => {
@@ -416,5 +423,5 @@ export function useGoogleCalendar(): GoogleCalendarHook {
     [],
   );
 
-  return { connected, isConnecting, syncing, lastError, clientId, setClientId, connect, autoConnect, disconnect, createEvent, createHabitEvent, deleteEvent };
+  return { connected, isConnecting, syncing, lastError, clientId, setClientId, connect, autoConnect, disconnect, getToken, createEvent, createHabitEvent, deleteEvent };
 }

@@ -47,6 +47,23 @@
 
 .ls-nav-spacer { flex: 1; }
 
+.ls-nav-gcal-connected {
+  color: #4caf7d;
+}
+.ls-nav-gcal-connected:hover {
+  color: #3d9e68;
+  background: rgba(76,175,125,0.10);
+}
+.ls-nav-gcal-disconnected {
+  color: var(--tx-4, #B4A89E);
+  opacity: 0.75;
+}
+.ls-nav-gcal-disconnected:hover {
+  color: var(--tx-1, #17120B);
+  background: var(--surface-2, #F2EDE5);
+  opacity: 1;
+}
+
 /* ── Scrollable content ── */
 .ls-content {
   flex: 1;
