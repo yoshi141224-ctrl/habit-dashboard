@@ -452,6 +452,9 @@ export default function App() {
         gcalConnected={gcal.connected}
         gcalSyncing={gcal.syncing}
         gcalLastError={gcal.lastError}
+        gcalMobileSetupUrl={gcal.clientId
+          ? `${window.location.origin}${window.location.pathname}#gcal=${encodeURIComponent(gcal.clientId)}`
+          : null}
         onGcalConnect={handleTimerGcalConnect}
         onGcalDisconnect={gcal.disconnect}
         onGcalSwitchAccount={handleGcalSwitchAccount}

@@ -136,8 +136,20 @@ export function useGoogleCalendar(): GoogleCalendarHook {
   _updateCallbacks();
 
   useEffect(() => {
-    // 1. Handle OAuth redirect return
     const hash = window.location.hash;
+
+    // 1. Mobile setup link: #gcal=CLIENT_ID — saves Client ID silently
+    if (hash.startsWith('#gcal=')) {
+      const id = decodeURIComponent(hash.slice(6)).trim();
+      if (id) {
+        setClientId(id);
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        // useEffect([clientId]) will re-init token client with the new ID
+      }
+      // Fall through to restore cached token / load GIS
+    }
+
+    // 2. Handle OAuth redirect return (#access_token=...)
     if (hash.includes('access_token=')) {
       const params = new URLSearchParams(hash.slice(1));
       const token = params.get('access_token');
@@ -152,14 +164,15 @@ export function useGoogleCalendar(): GoogleCalendarHook {
         return;
       }
     }
-    // 2. Restore cached token
+
+    // 3. Restore cached token
     const token = localStorage.getItem(LS_ACCESS_TOKEN);
     const expiry = Number(localStorage.getItem(LS_TOKEN_EXPIRY) ?? 0);
     if (token && Date.now() < expiry) {
       tokenRef.current = token;
       setConnected(true);
     }
-    // 3. Pre-load GIS so token client can be initialized eagerly
+    // 4. Pre-load GIS so token client can be initialized eagerly
     loadGIS().then(() => _initTokenClient()).catch(() => {});
   }, []); // mount only
 

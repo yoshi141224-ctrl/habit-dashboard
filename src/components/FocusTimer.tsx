@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import './FocusTimer.css';
 import type { FocusSession } from '../types';
 
@@ -21,6 +21,7 @@ interface Props {
   gcalConnected: boolean;
   gcalSyncing: boolean;
   gcalLastError: string | null;
+  gcalMobileSetupUrl: string | null;
   onGcalConnect: () => Promise<void>;
   onGcalDisconnect: () => void;
   onGcalSwitchAccount: () => void;
@@ -45,13 +46,22 @@ export default function FocusTimer({
   status, elapsed, todaySessions, totalFocusSeconds,
   pendingNotes, activeItemName, activeItemColor,
   onStart, onPause, onReset, onNotesChange, formatTime,
-  gcalConnected, gcalSyncing, gcalLastError,
+  gcalConnected, gcalSyncing, gcalLastError, gcalMobileSetupUrl,
   onGcalConnect, onGcalDisconnect, onGcalSwitchAccount,
   onDeleteSession,
 }: Props) {
   const [mobileExpanded, setMobileExpanded] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   const touchStartY = useRef<number | null>(null);
   const touchStartTime = useRef<number>(0);
+
+  const copyMobileSetupUrl = useCallback(() => {
+    if (!gcalMobileSetupUrl) return;
+    navigator.clipboard.writeText(gcalMobileSetupUrl).then(() => {
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2500);
+    });
+  }, [gcalMobileSetupUrl]);
 
   const r = 70, cx = 80, cy = 80;
   const circumference = 2 * Math.PI * r;
@@ -303,6 +313,18 @@ export default function FocusTimer({
               <p className="ft-gcal-desc">
                 セッション終了時に自動でカレンダーに追加されます
               </p>
+              {gcalMobileSetupUrl && (
+                <div className="ft-gcal-setup-row">
+                  <button
+                    type="button"
+                    className={`ft-gcal-setup-btn${linkCopied ? ' ft-gcal-setup-btn--copied' : ''}`}
+                    onClick={copyMobileSetupUrl}
+                  >
+                    {linkCopied ? '✓ コピー済み' : '📱 スマホ設定リンクをコピー'}
+                  </button>
+                  <span className="ft-gcal-setup-hint">スマホで開くと自動設定</span>
+                </div>
+              )}
               <div className="ft-gcal-btns">
                 <button type="button" className="ft-gcal-disconnect" onClick={onGcalDisconnect}>
                   連携を解除

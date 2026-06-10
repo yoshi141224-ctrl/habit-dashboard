@@ -11,6 +11,7 @@ const SYNC_KEYS = [
   'hd_habits', 'hd_completions', 'hd_sub_completions',
   'hd_tasks', 'hd_completed_tasks', 'hd_timelogs',
   'hd_sessions', 'hd_habit_gcal_events',
+  'hd_gcal_client_id', // sync Client ID so mobile doesn't need manual entry
 ];
 
 export interface DriveSyncData {

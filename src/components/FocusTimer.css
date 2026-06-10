@@ -347,6 +347,33 @@
   border: 1px solid #F5C6C6;
 }
 
+.ft-gcal-setup-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ft-gcal-setup-btn {
+  background: #4285F4;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  align-self: flex-start;
+  transition: opacity 0.15s, background 0.15s;
+}
+.ft-gcal-setup-btn:hover { opacity: 0.85; }
+.ft-gcal-setup-btn--copied { background: #27AE60; }
+
+.ft-gcal-setup-hint {
+  font-size: 9.5px;
+  color: var(--tx-3, #978780);
+}
+
 /* ═══════════════════════════════════════
    Tablet (768–1023px)
 ═══════════════════════════════════════ */
