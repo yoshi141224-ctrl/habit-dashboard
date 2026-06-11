@@ -103,17 +103,27 @@ const LS_BANNER_DISMISSED = 'hd_gcal_banner_dismissed';
 export const gcalBannerDismissed = () => localStorage.getItem(LS_BANNER_DISMISSED) === '1';
 export const dismissGcalBanner   = () => localStorage.setItem(LS_BANNER_DISMISSED, '1');
 
+function readStoredToken(): { token: string; expiry: number } | null {
+  const token = localStorage.getItem(LS_ACCESS_TOKEN);
+  const expiry = Number(localStorage.getItem(LS_TOKEN_EXPIRY) ?? 0);
+  if (token && expiry && Date.now() < expiry) return { token, expiry };
+  return null;
+}
+
 export function useGoogleCalendar(): GoogleCalendarHook {
   const [clientId, setClientIdState] = useState(
     // Always start with the build-time default so stale Drive-synced values can't break OAuth
     () => DEFAULT_CLIENT_ID,
   );
-  const [connected,    setConnected]    = useState(false);
+  // Eagerly read from localStorage so the first render is already in the correct connected state.
+  // This prevents a false→true flash that could cause a blank page on page refresh.
+  const [connected,    setConnected]    = useState(() => readStoredToken() !== null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [syncing,      setSyncing]      = useState(false);
   const [lastError,    setLastError]    = useState<string | null>(null);
 
-  const tokenRef = useRef<string | null>(null);
+  // Also eagerly initialize tokenRef so getToken() works from the very first render.
+  const tokenRef = useRef<string | null>(readStoredToken()?.token ?? null);
 
   useEffect(() => {
     const hash = window.location.hash;
@@ -171,11 +181,10 @@ export function useGoogleCalendar(): GoogleCalendarHook {
       }
     }
 
-    // 3. Restore cached token
-    const token = localStorage.getItem(LS_ACCESS_TOKEN);
-    const expiry = Number(localStorage.getItem(LS_TOKEN_EXPIRY) ?? 0);
-    if (token && Date.now() < expiry) {
-      tokenRef.current = token;
+    // 3. Restore cached token (handled by useState/useRef eager init above — kept as safety net)
+    const stored = readStoredToken();
+    if (stored && !tokenRef.current) {
+      tokenRef.current = stored.token;
       setConnected(true);
     }
     // 4. Pre-load GIS so autoConnect (silent refresh) is fast
@@ -186,6 +195,25 @@ export function useGoogleCalendar(): GoogleCalendarHook {
   useEffect(() => {
     if (clientId) loadGIS().catch(() => {});
   }, [clientId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // BFCache restoration: when the browser restores this page from the back-forward cache
+  // (e.g. user pressed Back after being redirected to Google OAuth), React effects don't
+  // re-run. We use pageshow to re-sync token state so the app isn't stuck blank.
+  useEffect(() => {
+    function onPageShow(e: PageTransitionEvent) {
+      if (!e.persisted) return; // normal page load — already handled
+      const stored = readStoredToken();
+      if (stored) {
+        tokenRef.current = stored.token;
+        setConnected(true);
+      } else {
+        tokenRef.current = null;
+        setConnected(false);
+      }
+    }
+    window.addEventListener('pageshow', onPageShow);
+    return () => window.removeEventListener('pageshow', onPageShow);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Proactive token refresh: every 5 minutes check if the token expires within 10 minutes.
   // If so, call autoConnect (silent prompt:none). Prevents sync from silently dying after 1 hour.
