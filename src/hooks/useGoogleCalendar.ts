@@ -125,18 +125,33 @@ export function useGoogleCalendar(): GoogleCalendarHook {
       // Fall through to restore cached token / load GIS
     }
 
-    // 2. Handle OAuth redirect return (#access_token=...)
-    if (hash.includes('access_token=')) {
+    // 2. Handle OAuth redirect return
+    if (hash.includes('access_token=') || hash.includes('error=')) {
       const params = new URLSearchParams(hash.slice(1));
       const token = params.get('access_token');
-      const expiresIn = Number(params.get('expires_in') ?? 3600);
+      const errorCode = params.get('error');
+
+      if (errorCode) {
+        // Clean URL then show error
+        try { window.history.replaceState(null, '', window.location.pathname + window.location.search); } catch { /**/ }
+        if (errorCode === 'redirect_uri_mismatch') {
+          setLastError('リダイレクトURI未登録 → Google Cloud Console に https://yoshi141224-ctrl.github.io/habit-dashboard/ を追加してください');
+        } else {
+          setLastError(`Google 認証エラー: ${errorCode}`);
+        }
+        return;
+      }
+
       if (token) {
-        tokenRef.current = token;
+        const expiresIn = Number(params.get('expires_in') ?? 3600);
         const expiry = Date.now() + expiresIn * 1000;
+        // Save token FIRST, then navigate to clean URL
+        // Using location.replace() forces a fresh page load — eliminates any
+        // state/cache issues that cause blank screens in Arc/Chrome after OAuth
         localStorage.setItem(LS_ACCESS_TOKEN, token);
         localStorage.setItem(LS_TOKEN_EXPIRY, String(expiry));
-        setConnected(true);
-        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        const cleanUrl = window.location.origin + window.location.pathname + window.location.search;
+        window.location.replace(cleanUrl);
         return;
       }
     }
