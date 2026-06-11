@@ -69,6 +69,7 @@ interface GWindow extends Window {
     };
   };
 }
+// Note: TokenClient/GWindow are still used by autoConnect's silent-refresh path
 
 export interface GoogleCalendarHook {
   connected: boolean;
@@ -108,32 +109,7 @@ export function useGoogleCalendar(): GoogleCalendarHook {
   const [syncing,      setSyncing]      = useState(false);
   const [lastError,    setLastError]    = useState<string | null>(null);
 
-  const tokenRef       = useRef<string | null>(null);
-  const tokenClientRef = useRef<TokenClient | null>(null);
-
-  // Stable callback refs — always point to latest closures
-  const callbackRef    = useRef<((resp: TokenResponse) => void) | null>(null);
-  const errCallbackRef = useRef<(() => void) | null>(null);
-
-  // Called on every render to keep callbacks fresh
-  function _updateCallbacks() {
-    callbackRef.current = (resp: TokenResponse) => {
-      if (resp.error) {
-        if (resp.error !== 'popup_closed_by_user') {
-          _redirectConnect(clientId.trim());
-        } else {
-          setIsConnecting(false);
-        }
-        return;
-      }
-      _saveToken(resp);
-      setIsConnecting(false);
-    };
-    errCallbackRef.current = () => {
-      _redirectConnect(clientId.trim());
-    };
-  }
-  _updateCallbacks();
+  const tokenRef = useRef<string | null>(null);
 
   useEffect(() => {
     const hash = window.location.hash;
@@ -172,16 +148,13 @@ export function useGoogleCalendar(): GoogleCalendarHook {
       tokenRef.current = token;
       setConnected(true);
     }
-    // 4. Pre-load GIS so token client can be initialized eagerly
-    loadGIS().then(() => _initTokenClient()).catch(() => {});
+    // 4. Pre-load GIS so autoConnect (silent refresh) is fast
+    loadGIS().catch(() => {});
   }, []); // mount only
 
-  // Re-init when clientId changes
+  // Pre-load GIS when clientId becomes available
   useEffect(() => {
-    if (clientId) {
-      tokenClientRef.current = null; // reset
-      loadGIS().then(() => _initTokenClient()).catch(() => {});
-    }
+    if (clientId) loadGIS().catch(() => {});
   }, [clientId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Proactive token refresh: every 5 minutes check if the token expires within 10 minutes.
@@ -197,24 +170,6 @@ export function useGoogleCalendar(): GoogleCalendarHook {
     }, 5 * 60 * 1000); // every 5 minutes
     return () => clearInterval(id);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  function _initTokenClient() {
-    const id = clientId.trim() || (localStorage.getItem(LS_CLIENT_ID) ?? '');
-    if (!id) return;
-    const gw = window as unknown as GWindow;
-    if (!gw.google?.accounts?.oauth2) return;
-    if (tokenClientRef.current) return;
-    const config: Record<string, unknown> = {
-      client_id: id,
-      scope: 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/drive.appdata',
-      callback: (resp: TokenResponse) => callbackRef.current?.(resp),
-      error_callback: () => errCallbackRef.current?.(),
-    };
-    // iOS (Safari・Chrome とも WebKit でポップアップがブロック) → redirect mode
-    // Android Chrome は window.open() を許可するので popup mode のまま
-    if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) config.ux_mode = 'redirect';
-    tokenClientRef.current = gw.google.accounts.oauth2.initTokenClient(config);
-  }
 
   function setClientId(id: string) {
     setClientIdState(id);
@@ -287,7 +242,7 @@ export function useGoogleCalendar(): GoogleCalendarHook {
     window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
   }
 
-  // SYNCHRONOUS connect — no await, so iOS user gesture context is preserved
+  // Redirect-based connect — works on all browsers without popup permissions
   function connect(): Promise<void> {
     const id = clientId.trim();
     if (!id) {
@@ -296,11 +251,7 @@ export function useGoogleCalendar(): GoogleCalendarHook {
     }
     setLastError(null);
     setIsConnecting(true);
-    if (tokenClientRef.current) {
-      tokenClientRef.current.requestAccessToken();
-    } else {
-      _redirectConnect(id);
-    }
+    _redirectConnect(id);
     return Promise.resolve();
   }
 
