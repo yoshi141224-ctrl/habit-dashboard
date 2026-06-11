@@ -4,6 +4,7 @@ const DRIVE_API = 'https://www.googleapis.com/drive/v3';
 const UPLOAD_API = 'https://www.googleapis.com/upload/drive/v3';
 const FILE_NAME = 'habit-dashboard-sync.json';
 const LS_FILE_ID = 'hd_drive_file_id';
+const LS_LAST_PUSH_TIME = 'hd_last_push_time'; // tracks when we last successfully pushed
 const POLL_INTERVAL = 3_000; // 3 seconds
 
 const SYNC_KEYS = [
@@ -26,8 +27,6 @@ interface Opts {
 }
 
 // ── Merge helpers ─────────────────────────────────────────────
-// For completion maps: union so checks from all devices are preserved.
-// "Last uncheck wins" is not supported intentionally — union is safe for habit tracking.
 
 function mergeCompletions(
   local: Record<string, string[]>,
@@ -56,6 +55,17 @@ function mergeSubCompletions(
     merged[date] = mergedByHabit;
   }
   return merged;
+}
+
+/**
+ * Merge arrays by ID — adds remote items that don't exist locally.
+ * Local items always take precedence (local edits are preserved).
+ */
+function mergeById<T extends { id: string }>(local: T[], remote: T[]): T[] {
+  const map = new Map<string, T>();
+  for (const item of remote) map.set(item.id, item);
+  for (const item of local) map.set(item.id, item); // local wins on conflict
+  return [...map.values()];
 }
 
 export function useDriveSync({ getToken, onPullComplete, onTokenExpired }: Opts) {
@@ -143,19 +153,26 @@ export function useDriveSync({ getToken, onPullComplete, onTokenExpired }: Opts)
           try { snapshot[key] = JSON.parse(raw); } catch { snapshot[key] = raw; }
         }
       }
+      const now = Date.now();
       const payload: DriveSyncData = {
         version: 1,
-        lastModified: Date.now(),
+        lastModified: now,
         data: snapshot,
       };
       const form = new FormData();
       form.append('metadata', new Blob(['{}'], { type: 'application/json' }));
       form.append('media', new Blob([JSON.stringify(payload)], { type: 'application/json' }));
       try {
-        await driveRequest(
+        const r = await driveRequest(
           `${UPLOAD_API}/files/${id}?uploadType=multipart`,
           { method: 'PATCH', body: form }
         );
+        if (r.ok) {
+          // Record the timestamp of this push. Pull uses this to decide whether
+          // remote data is actually newer than what we last sent, preventing
+          // stale Drive data from overwriting fresh local edits on reconnect.
+          localStorage.setItem(LS_LAST_PUSH_TIME, String(now));
+        }
       } catch { /* 401/403 handled */ }
     } catch (e) {
       console.warn('[DriveSync] push error:', e);
@@ -185,14 +202,20 @@ export function useDriveSync({ getToken, onPullComplete, onTokenExpired }: Opts)
       const remote: DriveSyncData = await r.json();
       initialPullDoneRef.current = true;
 
+      // Conflict resolution: remote is "newer" only if it was modified AFTER our
+      // last successful push. This prevents a stale Drive snapshot from overwriting
+      // fresh local edits made while the device was disconnected.
+      const lastPushTime = Number(localStorage.getItem(LS_LAST_PUSH_TIME) ?? 0);
+      const remoteIsNewer = remote.lastModified > lastPushTime;
+
       let changed = false;
       for (const [key, value] of Object.entries(remote.data)) {
         if (value === undefined || value === null) continue;
 
         const localRaw = localStorage.getItem(key);
 
+        // Completions: always union-merge (checks from all devices are preserved)
         if (key === 'hd_completions') {
-          // Union-merge: checks from all devices are preserved
           const localVal: Record<string, string[]> = localRaw ? JSON.parse(localRaw) : {};
           const merged = mergeCompletions(localVal, value as Record<string, string[]>);
           const mergedStr = JSON.stringify(merged);
@@ -214,7 +237,37 @@ export function useDriveSync({ getToken, onPullComplete, onTokenExpired }: Opts)
           continue;
         }
 
-        // For all other keys: remote wins (last-write-wins)
+        // Habits: union-merge by ID — new habits from remote are added, but local
+        // edits to existing habits are never overwritten.
+        if (key === 'hd_habits') {
+          const localArr = localRaw ? (JSON.parse(localRaw) as { id: string }[]) : [];
+          const remoteArr = value as { id: string }[];
+          const merged = mergeById(localArr, remoteArr);
+          const mergedStr = JSON.stringify(merged);
+          if (mergedStr !== localRaw) {
+            localStorage.setItem(key, mergedStr);
+            changed = true;
+          }
+          continue;
+        }
+
+        // Tasks: union-merge by ID
+        if (key === 'hd_tasks') {
+          const localArr = localRaw ? (JSON.parse(localRaw) as { id: string }[]) : [];
+          const remoteArr = value as { id: string }[];
+          const merged = mergeById(localArr, remoteArr);
+          const mergedStr = JSON.stringify(merged);
+          if (mergedStr !== localRaw) {
+            localStorage.setItem(key, mergedStr);
+            changed = true;
+          }
+          continue;
+        }
+
+        // For all other keys: only apply remote if it's genuinely newer than our
+        // last push. Prevents a reconnect from reverting local edits.
+        if (!remoteIsNewer) continue;
+
         const incoming = JSON.stringify(value);
         if (localRaw !== incoming) {
           localStorage.setItem(key, incoming);
@@ -224,7 +277,7 @@ export function useDriveSync({ getToken, onPullComplete, onTokenExpired }: Opts)
 
       if (!changed) return;
 
-      // Push merged result back to Drive so all other devices converge to the same state
+      // Push merged result back to Drive so all devices converge to the same state
       if (pushTimerRef.current) clearTimeout(pushTimerRef.current);
       pushTimerRef.current = setTimeout(() => pushRef.current(), 2000);
 
