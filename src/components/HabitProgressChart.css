@@ -1,0 +1,179 @@
+.hpc-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  min-width: 0;
+}
+
+.hpc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.hpc-header-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hpc-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #9a938c;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.hpc-tabs {
+  display: flex;
+  gap: 2px;
+  background: #f5f2ee;
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.hpc-tab {
+  background: none;
+  border: none;
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-family: inherit;
+  color: #9a938c;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  white-space: nowrap;
+}
+
+.hpc-tab--active {
+  background: #fff;
+  color: #4a3f38;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+/* Legend */
+.hpc-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+
+.hpc-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hpc-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.hpc-legend-name {
+  font-size: 10.5px;
+  color: #7a7068;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 72px;
+}
+
+.hpc-legend-more {
+  font-size: 10.5px;
+  color: #b0a89e;
+}
+
+/* Chart wrap */
+.hpc-chart-wrap {
+  width: 100%;
+}
+
+/* Day view */
+.hpc-day-view {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hpc-day-rate {
+  font-size: 32px;
+  font-weight: 700;
+  color: #939b7e;
+  line-height: 1;
+}
+
+.hpc-day-strip {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  gap: 1px;
+}
+
+.hpc-day-seg {
+  flex: 1;
+  border-radius: 2px;
+  transition: opacity 0.15s;
+}
+
+.hpc-day-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.hpc-day-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hpc-day-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.hpc-day-name {
+  font-size: 12px;
+  color: #b0a89e;
+  flex: 1;
+}
+
+.hpc-day-name.done {
+  color: #4a3f38;
+}
+
+.hpc-day-check {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Footer */
+.hpc-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 4px;
+  border-top: 1px solid #f0ece6;
+}
+
+.hpc-avg-label {
+  font-size: 11px;
+  color: #b0a89e;
+}
+
+.hpc-avg-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: #939b7e;
+}

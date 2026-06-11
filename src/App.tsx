@@ -9,14 +9,14 @@ import { useDriveSync } from './hooks/useDriveSync';
 import LeftSidebar from './components/LeftSidebar';
 import GoogleCalendarBanner from './components/GoogleCalendarBanner';
 import StackedBarChart from './components/StackedBarChart';
-import BarChart from './components/BarChart';
+import HabitProgressChart from './components/HabitProgressChart';
 import HabitDiary from './components/HabitDiary';
 import ToDoList from './components/ToDoList';
 import FocusTimer from './components/FocusTimer';
 import CompletedTasksLog from './components/CompletedTasksLog';
 import TaskCalendar from './components/TaskCalendar';
 import HabitStatsView from './components/HabitStatsView';
-import type { StackedBarDatum, BarChartDatum } from './types';
+import type { StackedBarDatum } from './types';
 import { ITEM_COLORS } from './types';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -294,21 +294,6 @@ export default function App() {
     });
   }, [timeLogs.timeLogs, habits.habits, tasks.tasks, itemColorMap]);
 
-  // ── 30-day habit completion data (Month tab in Habit Progress chart) ──
-  const monthHabitData: BarChartDatum[] = useMemo(() => {
-    return Array.from({ length: 30 }, (_, i) => {
-      const d = new Date();
-      d.setDate(d.getDate() - (29 - i));
-      const key = d.toISOString().slice(0, 10);
-      const done = (habits.completions[key] ?? []).length;
-      const total = habits.habits.length;
-      const label = i === 0 || d.getDate() === 1
-        ? `${d.getMonth()+1}/${d.getDate()}`
-        : String(d.getDate());
-      return { label, value: total > 0 ? Math.round((done / total) * 100) : 0 };
-    });
-  }, [habits.completions, habits.habits]);
-
   // Legend items for stacked chart
   const legendItems = useMemo(() => {
     const seen = new Map<string, { name: string; color: string; total: number }>();
@@ -399,6 +384,7 @@ export default function App() {
             habits={habits.habits}
             completions={habits.completions}
             timeLogs={timeLogs.timeLogs}
+            colorMap={itemColorMap}
           />
         )}
 
@@ -410,11 +396,10 @@ export default function App() {
                 monthData={monthStackedData}
                 legendItems={legendItems}
               />
-              <BarChart
-                title="Habit Progress"
-                color="#c49476"
-                weekData={habits.weeklyHabitData}
-                monthData={monthHabitData}
+              <HabitProgressChart
+                habits={habits.habits}
+                completions={habits.completions}
+                colorMap={itemColorMap}
               />
             </div>
 

@@ -14,6 +14,22 @@
          The app UI is natively in Japanese so translation is not needed. -->
     <meta name="google" content="notranslate" />
     <title>習慣ダッシュボード</title>
+    <!-- Process OAuth token before React loads — eliminates blank-page flash -->
+    <script>
+      (function(){
+        var h = window.location.hash;
+        if (h.indexOf('access_token=') !== -1) {
+          var p = new URLSearchParams(h.slice(1));
+          var t = p.get('access_token');
+          var exp = Date.now() + Number(p.get('expires_in') || 3600) * 1000;
+          if (t) {
+            localStorage.setItem('hd_gcal_access_token', t);
+            localStorage.setItem('hd_gcal_token_expiry', String(exp));
+            window.history.replaceState(null, '', location.pathname + location.search);
+          }
+        }
+      })();
+    </script>
   </head>
   <body>
     <!-- class="notranslate" is recognized by Chrome/Google Translate as a signal

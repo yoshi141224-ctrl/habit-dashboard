@@ -5,6 +5,9 @@ const LS_CLIENT_ID   = 'hd_gcal_client_id';
 const LS_ACCESS_TOKEN = 'hd_gcal_access_token';
 const LS_TOKEN_EXPIRY = 'hd_gcal_token_expiry';
 
+// Pre-configured Client ID — works on every browser without manual setup
+const DEFAULT_CLIENT_ID = '1094361881102-d929psrhmiel3o1fk0acks9d3mosfalo.apps.googleusercontent.com';
+
 // ITEM_COLORS hex → Google Calendar colorId (1–11)
 // 1=Tomato, 2=Flamingo, 3=Tangerine, 4=Banana, 5=Sage,
 // 6=Basil, 7=Peacock, 8=Blueberry, 9=Lavender, 10=Grape, 11=Graphite
@@ -102,7 +105,8 @@ export const dismissGcalBanner   = () => localStorage.setItem(LS_BANNER_DISMISSE
 
 export function useGoogleCalendar(): GoogleCalendarHook {
   const [clientId, setClientIdState] = useState(
-    () => localStorage.getItem(LS_CLIENT_ID) ?? '',
+    // Always start with the build-time default so stale Drive-synced values can't break OAuth
+    () => DEFAULT_CLIENT_ID,
   );
   const [connected,    setConnected]    = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -114,15 +118,24 @@ export function useGoogleCalendar(): GoogleCalendarHook {
   useEffect(() => {
     const hash = window.location.hash;
 
-    // 1. Mobile setup link: #gcal=CLIENT_ID — saves Client ID silently
+    // 1. Setup link: #gcal=CLIENT_ID — saves Client ID and auto-triggers OAuth
     if (hash.startsWith('#gcal=')) {
       const id = decodeURIComponent(hash.slice(6)).trim();
       if (id) {
         setClientId(id);
-        window.history.replaceState(null, '', window.location.pathname + window.location.search);
-        // useEffect([clientId]) will re-init token client with the new ID
+        // If already have a valid token, just restore it
+        const cachedToken = localStorage.getItem(LS_ACCESS_TOKEN);
+        const cachedExpiry = Number(localStorage.getItem(LS_TOKEN_EXPIRY) ?? 0);
+        if (cachedToken && Date.now() < cachedExpiry) {
+          tokenRef.current = cachedToken;
+          setConnected(true);
+          try { window.history.replaceState(null, '', window.location.pathname + window.location.search); } catch { /**/ }
+          return;
+        }
+        // No valid token → auto-redirect to Google OAuth immediately
+        _redirectConnect(id);
+        return;
       }
-      // Fall through to restore cached token / load GIS
     }
 
     // 2. Handle OAuth redirect return
@@ -145,13 +158,15 @@ export function useGoogleCalendar(): GoogleCalendarHook {
       if (token) {
         const expiresIn = Number(params.get('expires_in') ?? 3600);
         const expiry = Date.now() + expiresIn * 1000;
-        // Save token FIRST, then navigate to clean URL
-        // Using location.replace() forces a fresh page load — eliminates any
-        // state/cache issues that cause blank screens in Arc/Chrome after OAuth
         localStorage.setItem(LS_ACCESS_TOKEN, token);
         localStorage.setItem(LS_TOKEN_EXPIRY, String(expiry));
-        const cleanUrl = window.location.origin + window.location.pathname + window.location.search;
-        window.location.replace(cleanUrl);
+        // Update state directly — no page reload so no blank screen
+        tokenRef.current = token;
+        setConnected(true);
+        setLastError(null);
+        try {
+          window.history.replaceState(null, '', window.location.origin + window.location.pathname + window.location.search);
+        } catch { /**/ }
         return;
       }
     }
