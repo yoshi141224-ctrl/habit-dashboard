@@ -54,9 +54,8 @@ function formatMinutes(seconds: number): string {
   return `${Math.floor(m / 60)}h ${m % 60}m`;
 }
 
-// EditState: parent habit fields (name or detail only — no emoji)
-type EditField = 'name' | 'detail';
-type EditState = { habitId: string; field: EditField; value: string } | null;
+// EditState: both name and detail shown simultaneously
+type EditState = { habitId: string; name: string; detail: string } | null;
 
 // SubEditState: sub-habit name only
 type SubEditState = { habitId: string; subId: string; name: string } | null;
@@ -82,7 +81,7 @@ export default function HabitDiary({
   const [subContextMenu, setSubContextMenu] = useState<{ habitId: string; subId: string; x: number; y: number } | null>(null);
   // Sub-habit inline edit
   const [subEditState, setSubEditState] = useState<SubEditState>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const detailInputRef = useRef<HTMLInputElement>(null);
   // Track if sub-edit is being cancelled (to skip onBlur save)
   const subEditCancelRef = useRef(false);
 
@@ -113,10 +112,10 @@ export default function HabitDiary({
     setContextMenu(null);
   }
 
-  // Parent habit inline edit
-  function startEdit(e: React.MouseEvent, habitId: string, field: EditField, value: string) {
+  // Parent habit inline edit — shows name + detail together so Enter doesn't close
+  function startEdit(e: React.MouseEvent, habitId: string, name: string, detail: string) {
     e.stopPropagation();
-    setEditState({ habitId, field, value });
+    setEditState({ habitId, name, detail });
     closeAllMenus();
   }
 
@@ -124,17 +123,8 @@ export default function HabitDiary({
     if (!editState) return;
     const habit = habits.find(h => h.id === editState.habitId);
     if (!habit) { setEditState(null); return; }
-    if (editState.field === 'name') {
-      onEditHabit(editState.habitId, editState.value.trim() || habit.name, habit.detail);
-    } else {
-      onEditHabit(editState.habitId, habit.name, editState.value.trim());
-    }
+    onEditHabit(editState.habitId, editState.name.trim() || habit.name, editState.detail.trim());
     setEditState(null);
-  }
-
-  function handleEditKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter')  { e.preventDefault(); commitEdit(); }
-    if (e.key === 'Escape') { e.preventDefault(); setEditState(null); }
   }
 
   // Sub-habit inline edit
@@ -281,44 +271,69 @@ export default function HabitDiary({
                   className="hd-cell-text"
                   onClick={() => editState?.habitId !== habit.id && !timerRunning && onSelect(habit.id)}
                 >
-                  {/* Name */}
-                  {editState?.habitId === habit.id && editState.field === 'name' ? (
-                    <input
-                      ref={inputRef}
-                      className="hd-edit-input hd-edit-name"
-                      value={editState.value}
-                      autoFocus
-                      onChange={e => setEditState(prev => prev ? { ...prev, value: e.target.value } : null)}
-                      onBlur={commitEdit}
-                      onKeyDown={handleEditKeyDown}
+                  {editState?.habitId === habit.id ? (
+                    /* ── Inline edit form: name + detail simultaneously ── */
+                    <div
+                      className="hd-edit-form"
                       onClick={e => e.stopPropagation()}
-                    />
+                    >
+                      {/* Name input — Enter moves to detail, Escape cancels */}
+                      <input
+                        className="hd-edit-input hd-edit-name"
+                        value={editState.name}
+                        autoFocus
+                        onChange={e => setEditState(prev => prev ? { ...prev, name: e.target.value } : null)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter')  { e.preventDefault(); detailInputRef.current?.focus(); }
+                          if (e.key === 'Escape') { e.preventDefault(); setEditState(null); }
+                        }}
+                        onBlur={e => {
+                          const t = e.relatedTarget as HTMLElement | null;
+                          if (!t || !t.classList.contains('hd-edit-detail')) commitEdit();
+                        }}
+                      />
+                      {/* Detail input — Enter stays, Escape cancels, blur commits */}
+                      <input
+                        ref={detailInputRef}
+                        className="hd-edit-input hd-edit-detail"
+                        value={editState.detail}
+                        placeholder="詳細（任意）"
+                        onChange={e => setEditState(prev => prev ? { ...prev, detail: e.target.value } : null)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter')  { e.preventDefault(); }
+                          if (e.key === 'Escape') { e.preventDefault(); setEditState(null); }
+                        }}
+                        onBlur={e => {
+                          const t = e.relatedTarget as HTMLElement | null;
+                          if (!t || !t.classList.contains('hd-edit-name')) commitEdit();
+                        }}
+                      />
+                      <div className="hd-edit-actions">
+                        <button type="button" className="hd-sub-edit-save"
+                          tabIndex={-1}
+                          onMouseDown={e => e.preventDefault()}
+                          onClick={commitEdit}
+                        >✓</button>
+                        <button type="button" className="hd-sub-edit-cancel"
+                          tabIndex={-1}
+                          onMouseDown={e => e.preventDefault()}
+                          onClick={() => setEditState(null)}
+                        >×</button>
+                      </div>
+                    </div>
                   ) : (
-                    <p className="hd-habit-name" onDoubleClick={e => startEdit(e, habit.id, 'name', habit.name)}>{habit.name}</p>
+                    <>
+                      <p className="hd-habit-name" onDoubleClick={e => startEdit(e, habit.id, habit.name, habit.detail)}>{habit.name}</p>
+                      <p className="hd-habit-detail" onDoubleClick={e => startEdit(e, habit.id, habit.name, habit.detail)}>{habit.detail}</p>
+                    </>
                   )}
 
-                  {/* Detail */}
-                  {editState?.habitId === habit.id && editState.field === 'detail' ? (
-                    <input
-                      ref={inputRef}
-                      className="hd-edit-input hd-edit-detail"
-                      value={editState.value}
-                      autoFocus
-                      onChange={e => setEditState(prev => prev ? { ...prev, value: e.target.value } : null)}
-                      onBlur={commitEdit}
-                      onKeyDown={handleEditKeyDown}
-                      onClick={e => e.stopPropagation()}
-                    />
-                  ) : (
-                    <p className="hd-habit-detail" onDoubleClick={e => startEdit(e, habit.id, 'detail', habit.detail)}>{habit.detail}</p>
-                  )}
-
-                  {/* Time spent */}
+                  {/* Time spent — always shown */}
                   {spentLabel && (
                     <span className="hd-spent" style={{ background: color + '22', color }}>{spentLabel}</span>
                   )}
 
-                  {/* Session log */}
+                  {/* Session log — always shown */}
                   {habitSessions.length > 0 && (
                     <div className="hd-cell-sessions">
                       {habitSessions.map(s => (
@@ -592,15 +607,9 @@ export default function HabitDiary({
         >
           <button type="button" className="hd-context-item" onClick={() => {
             const habit = habits.find(h => h.id === contextMenu.habitId);
-            if (habit) setEditState({ habitId: habit.id, field: 'name', value: habit.name });
+            if (habit) setEditState({ habitId: habit.id, name: habit.name, detail: habit.detail });
             setContextMenu(null);
-          }}>✏️ 名前を編集</button>
-
-          <button type="button" className="hd-context-item" onClick={() => {
-            const habit = habits.find(h => h.id === contextMenu.habitId);
-            if (habit) setEditState({ habitId: habit.id, field: 'detail', value: habit.detail });
-            setContextMenu(null);
-          }}>📝 詳細を編集</button>
+          }}>✏️ 名前／詳細を編集</button>
 
           <button type="button" className="hd-context-item" onClick={() => {
             ensureExpanded(contextMenu.habitId);

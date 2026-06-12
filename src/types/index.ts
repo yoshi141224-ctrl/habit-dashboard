@@ -99,3 +99,4 @@ export const LS_SESSIONS = 'hd_sessions';
 export const LS_TIMELOGS = 'hd_timelogs';
 export const LS_TASKS = 'hd_tasks';
 export const LS_COMPLETED_TASKS = 'hd_completed_tasks';
+export const LS_DELETED_TASK_IDS = 'hd_deleted_task_ids';

@@ -48,6 +48,7 @@ interface Props {
   onUndoTask: (id: string) => void;
   onStarTask: (id: string) => void;
   onAddTask: (title: string, tag: string, time: string) => void;
+  onEditTask: (id: string, title: string, tag: string, time: string) => void;
   onRemoveTask: (id: string) => void;
   onRemoveCompleted: (id: string) => void;
   onClearCompleted: () => void;
@@ -107,6 +108,7 @@ export default function MobileView({
   onUndoTask,
   onStarTask,
   onAddTask,
+  onEditTask,
   onRemoveTask,
   onRemoveCompleted,
   onClearCompleted,
@@ -264,6 +266,7 @@ export default function MobileView({
                   onStar={onStarTask}
                   onSelect={onSelectItem}
                   onAdd={onAddTask}
+                  onEdit={onEditTask}
                   onRemove={onRemoveTask}
                 />
               </>

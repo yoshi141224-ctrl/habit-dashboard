@@ -438,6 +438,7 @@ export default function App() {
               onStar={tasks.toggleStar}
               onSelect={selectItem}
               onAdd={tasks.addTask}
+              onEdit={tasks.editTask}
               onRemove={tasks.removeTask}
             />
           </>

@@ -362,6 +362,20 @@
 .hd-context-delete      { color: #C0392B; }
 .hd-context-delete:hover { background: #FFF5F5; }
 
+/* ── Inline edit form (name + detail together) ── */
+.hd-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.hd-edit-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 2px;
+}
+
 /* ── Inline edit inputs ── */
 .hd-edit-input {
   width: 100%;
@@ -373,6 +387,7 @@
   border-radius: 0;
   font-family: inherit;
   color: var(--tx-1, #17120B);
+  box-sizing: border-box;
 }
 
 .hd-edit-name   { font-size: 12px; font-weight: 600; line-height: 1.25; }

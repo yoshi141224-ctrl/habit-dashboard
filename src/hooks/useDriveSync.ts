@@ -11,6 +11,7 @@ const SYNC_KEYS = [
   'hd_habits', 'hd_completions', 'hd_sub_completions',
   'hd_tasks', 'hd_completed_tasks', 'hd_timelogs',
   'hd_sessions', 'hd_habit_gcal_events',
+  'hd_deleted_task_ids', // tombstone set — union-merged so deletions propagate cross-device
   // hd_gcal_client_id is intentionally excluded: each device uses the build-time default
 ];
 
@@ -58,13 +59,13 @@ function mergeSubCompletions(
 }
 
 /**
- * Merge arrays by ID — adds remote items that don't exist locally.
- * Local items always take precedence (local edits are preserved).
+ * Union-merge by ID — remote wins on conflict so edits from other devices
+ * propagate, but items present only in local (offline additions) are kept.
  */
-function mergeById<T extends { id: string }>(local: T[], remote: T[]): T[] {
+function mergeByIdRemoteWins<T extends { id: string }>(local: T[], remote: T[]): T[] {
   const map = new Map<string, T>();
-  for (const item of remote) map.set(item.id, item);
-  for (const item of local) map.set(item.id, item); // local wins on conflict
+  for (const item of local)   map.set(item.id, item); // local first
+  for (const item of remote)  map.set(item.id, item); // remote overwrites (edit propagation)
   return [...map.values()];
 }
 
@@ -237,25 +238,24 @@ export function useDriveSync({ getToken, onPullComplete, onTokenExpired }: Opts)
           continue;
         }
 
-        // Habits: union-merge by ID — new habits from remote are added, but local
-        // edits to existing habits are never overwritten.
-        if (key === 'hd_habits') {
-          const localArr = localRaw ? (JSON.parse(localRaw) as { id: string }[]) : [];
-          const remoteArr = value as { id: string }[];
-          const merged = mergeById(localArr, remoteArr);
+        // Deleted task IDs tombstone: always union-merge so completions/deletions
+        // from any device are never forgotten, preventing sync from restoring tasks.
+        if (key === 'hd_deleted_task_ids') {
+          const localArr: string[] = localRaw ? JSON.parse(localRaw) : [];
+          const merged = [...new Set([...localArr, ...(value as string[])])];
           const mergedStr = JSON.stringify(merged);
-          if (mergedStr !== localRaw) {
-            localStorage.setItem(key, mergedStr);
-            changed = true;
-          }
+          if (mergedStr !== localRaw) { localStorage.setItem(key, mergedStr); changed = true; }
           continue;
         }
 
-        // Tasks: union-merge by ID
-        if (key === 'hd_tasks') {
+        // Habits and tasks: union-merge when remote is newer.
+        // Remote wins on conflict so name/emoji edits from other devices propagate;
+        // habits/tasks added offline on this device are also kept (union).
+        if (key === 'hd_habits' || key === 'hd_tasks') {
+          if (!remoteIsNewer) continue;
           const localArr = localRaw ? (JSON.parse(localRaw) as { id: string }[]) : [];
           const remoteArr = value as { id: string }[];
-          const merged = mergeById(localArr, remoteArr);
+          const merged = mergeByIdRemoteWins(localArr, remoteArr);
           const mergedStr = JSON.stringify(merged);
           if (mergedStr !== localRaw) {
             localStorage.setItem(key, mergedStr);
@@ -277,7 +277,12 @@ export function useDriveSync({ getToken, onPullComplete, onTokenExpired }: Opts)
 
       if (!changed) return;
 
-      // Push merged result back to Drive so all devices converge to the same state
+      // Mark that we've consumed remote data up to remote.lastModified.
+      // Without this, subsequent polls would still see remoteIsNewer=true and
+      // overwrite any local edits made between the pull and the echo push.
+      localStorage.setItem(LS_LAST_PUSH_TIME, String(remote.lastModified));
+
+      // Echo push: push merged result back to Drive so all devices converge
       if (pushTimerRef.current) clearTimeout(pushTimerRef.current);
       pushTimerRef.current = setTimeout(() => pushRef.current(), 2000);
 
@@ -295,7 +300,7 @@ export function useDriveSync({ getToken, onPullComplete, onTokenExpired }: Opts)
   const schedulePush = useCallback(() => {
     if (!initialPullDoneRef.current) return;
     if (pushTimerRef.current) clearTimeout(pushTimerRef.current);
-    pushTimerRef.current = setTimeout(() => pushRef.current(), 3000);
+    pushTimerRef.current = setTimeout(() => pushRef.current(), 600);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function startPolling(): Promise<void> {

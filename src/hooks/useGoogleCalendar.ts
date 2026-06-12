@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { FocusSession } from '../types';
 
-const LS_CLIENT_ID   = 'hd_gcal_client_id';
-const LS_ACCESS_TOKEN = 'hd_gcal_access_token';
-const LS_TOKEN_EXPIRY = 'hd_gcal_token_expiry';
+const LS_CLIENT_ID       = 'hd_gcal_client_id';
+const LS_ACCESS_TOKEN    = 'hd_gcal_access_token';
+const LS_TOKEN_EXPIRY    = 'hd_gcal_token_expiry';
+const LS_EVER_CONNECTED  = 'hd_gcal_ever_connected'; // set once on first successful auth, never cleared
 
 // Pre-configured Client ID — works on every browser without manual setup
 const DEFAULT_CLIENT_ID = '1094361881102-d929psrhmiel3o1fk0acks9d3mosfalo.apps.googleusercontent.com';
@@ -72,7 +73,6 @@ interface GWindow extends Window {
     };
   };
 }
-// Note: TokenClient/GWindow are still used by autoConnect's silent-refresh path
 
 export interface GoogleCalendarHook {
   connected: boolean;
@@ -123,7 +123,12 @@ export function useGoogleCalendar(): GoogleCalendarHook {
   const [lastError,    setLastError]    = useState<string | null>(null);
 
   // Also eagerly initialize tokenRef so getToken() works from the very first render.
-  const tokenRef = useRef<string | null>(readStoredToken()?.token ?? null);
+  const tokenRef       = useRef<string | null>(readStoredToken()?.token ?? null);
+  const isConnectingRef = useRef(false);
+
+  // Stable ref to autoConnect so useCallback API functions can call it without deps.
+  // Updated every render so it always has the latest clientId / connected state.
+  const autoConnectRef = useRef<() => Promise<boolean>>(async () => false);
 
   useEffect(() => {
     const hash = window.location.hash;
@@ -170,7 +175,7 @@ export function useGoogleCalendar(): GoogleCalendarHook {
         const expiry = Date.now() + expiresIn * 1000;
         localStorage.setItem(LS_ACCESS_TOKEN, token);
         localStorage.setItem(LS_TOKEN_EXPIRY, String(expiry));
-        // Update state directly — no page reload so no blank screen
+        localStorage.setItem(LS_EVER_CONNECTED, '1');
         tokenRef.current = token;
         setConnected(true);
         setLastError(null);
@@ -187,8 +192,15 @@ export function useGoogleCalendar(): GoogleCalendarHook {
       tokenRef.current = stored.token;
       setConnected(true);
     }
+
     // 4. Pre-load GIS so autoConnect (silent refresh) is fast
     loadGIS().catch(() => {});
+
+    // 5. If user has previously connected but token is now expired, silently refresh
+    const everConnected = localStorage.getItem(LS_EVER_CONNECTED) === '1';
+    if (everConnected && !readStoredToken()) {
+      setTimeout(() => { autoConnectRef.current().catch(() => {}); }, 500);
+    }
   }, []); // mount only
 
   // Pre-load GIS when clientId becomes available
@@ -209,24 +221,44 @@ export function useGoogleCalendar(): GoogleCalendarHook {
       } else {
         tokenRef.current = null;
         setConnected(false);
+        // BFCache restore with no token: silently try to reconnect
+        const everConnected = localStorage.getItem(LS_EVER_CONNECTED) === '1';
+        if (everConnected) {
+          setTimeout(() => { autoConnectRef.current().catch(() => {}); }, 300);
+        }
       }
     }
     window.addEventListener('pageshow', onPageShow);
     return () => window.removeEventListener('pageshow', onPageShow);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Proactive token refresh: every 5 minutes check if the token expires within 10 minutes.
+  // Proactive token refresh: every 2 minutes check if the token expires within 15 minutes.
   // If so, call autoConnect (silent prompt:none). Prevents sync from silently dying after 1 hour.
   useEffect(() => {
     const id = setInterval(() => {
       const expiry = Number(localStorage.getItem(LS_TOKEN_EXPIRY) ?? 0);
-      const tenMinutes = 10 * 60 * 1000;
-      if (expiry && expiry - Date.now() < tenMinutes) {
-        // Token is about to expire — try silent refresh
-        autoConnect().catch(() => {});
+      const fifteenMinutes = 15 * 60 * 1000;
+      if (expiry && expiry - Date.now() < fifteenMinutes) {
+        autoConnectRef.current().catch(() => {});
       }
-    }, 5 * 60 * 1000); // every 5 minutes
+    }, 2 * 60 * 1000); // every 2 minutes
     return () => clearInterval(id);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Visibility change: when tab comes back to foreground, check if token expired
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState !== 'visible') return;
+      const everConnected = localStorage.getItem(LS_EVER_CONNECTED) === '1';
+      if (!everConnected) return;
+      const expiry = Number(localStorage.getItem(LS_TOKEN_EXPIRY) ?? 0);
+      // Refresh if expired or within 5 minutes of expiry
+      if (!expiry || Date.now() >= expiry - 5 * 60 * 1000) {
+        autoConnectRef.current().catch(() => {});
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function setClientId(id: string) {
@@ -241,6 +273,7 @@ export function useGoogleCalendar(): GoogleCalendarHook {
     const expiry = Date.now() + (resp.expires_in ?? 3600) * 1000;
     localStorage.setItem(LS_ACCESS_TOKEN, resp.access_token);
     localStorage.setItem(LS_TOKEN_EXPIRY, String(expiry));
+    localStorage.setItem(LS_EVER_CONNECTED, '1'); // mark as permanently ever-connected
     setConnected(true);
     setLastError(null);
     return true;
@@ -253,26 +286,34 @@ export function useGoogleCalendar(): GoogleCalendarHook {
    */
   async function autoConnect(): Promise<boolean> {
     const id = clientId.trim();
-    if (!id || isConnecting) return connected;
+    if (!id) return false;
+    if (isConnectingRef.current) return connected;
     if (connected && getToken()) return true; // still have a valid token
+    isConnectingRef.current = true;
     setIsConnecting(true);
     setLastError(null);
     try {
       await loadGIS();
       return await new Promise<boolean>(resolve => {
         // 10-second timeout so iOS popup-blocked scenario never hangs
-        const timer = setTimeout(() => { setIsConnecting(false); resolve(false); }, 10_000);
+        const timer = setTimeout(() => {
+          isConnectingRef.current = false;
+          setIsConnecting(false);
+          resolve(false);
+        }, 10_000);
         const config: Record<string, unknown> = {
           client_id: id,
           scope: 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/drive.appdata',
           callback: (resp: TokenResponse) => {
             clearTimeout(timer);
             const ok = _saveToken(resp);
+            isConnectingRef.current = false;
             setIsConnecting(false);
             resolve(ok);
           },
           error_callback: () => {
             clearTimeout(timer);
+            isConnectingRef.current = false;
             setIsConnecting(false);
             resolve(false);
           },
@@ -282,10 +323,14 @@ export function useGoogleCalendar(): GoogleCalendarHook {
         client.requestAccessToken({ prompt: 'none' });
       });
     } catch {
+      isConnectingRef.current = false;
       setIsConnecting(false);
       return false;
     }
   }
+
+  // Keep the ref always pointing to the latest autoConnect closure
+  autoConnectRef.current = autoConnect;
 
   /** リダイレクト型 OAuth フロー（モバイルでポップアップがブロックされた場合） */
   function _redirectConnect(id: string) {
@@ -317,6 +362,7 @@ export function useGoogleCalendar(): GoogleCalendarHook {
     tokenRef.current = null;
     localStorage.removeItem(LS_ACCESS_TOKEN);
     localStorage.removeItem(LS_TOKEN_EXPIRY);
+    // NOTE: LS_EVER_CONNECTED is intentionally NOT cleared so auto-reconnect still works
     setConnected(false);
     setLastError(null);
   }
@@ -331,12 +377,37 @@ export function useGoogleCalendar(): GoogleCalendarHook {
     return tokenRef.current;
   }
 
+  /**
+   * Fetch wrapper that retries once after a silent token refresh on 401.
+   * Returns the response on success, or null if both attempts fail.
+   */
+  async function _fetchWithRetry(url: string, init: RequestInit): Promise<Response | null> {
+    // Ensure we have a token before trying
+    if (!tokenRef.current) {
+      const ok = await autoConnectRef.current();
+      if (!ok || !tokenRef.current) return null;
+    }
+
+    const firstInit = {
+      ...init,
+      headers: { ...(init.headers as Record<string, string>), Authorization: `Bearer ${tokenRef.current}` },
+    };
+    const res = await fetch(url, firstInit);
+
+    if (res.status !== 401) return res;
+
+    // Token expired mid-request — attempt silent refresh and retry once
+    const refreshed = await autoConnectRef.current();
+    if (!refreshed || !tokenRef.current) return null;
+
+    return fetch(url, {
+      ...init,
+      headers: { ...(init.headers as Record<string, string>), Authorization: `Bearer ${tokenRef.current}` },
+    });
+  }
+
   const createEvent = useCallback(
     async (session: FocusSession, itemName: string, itemColor: string | null): Promise<string | null> => {
-      if (!tokenRef.current) {
-        setLastError('Google カレンダーに接続してください');
-        return null;
-      }
       if (session.durationSeconds < 30) return null; // 30秒未満は同期しない
       setSyncing(true);
       setLastError(null);
@@ -353,27 +424,21 @@ export function useGoogleCalendar(): GoogleCalendarHook {
           end:   { dateTime: session.endTime,   timeZone: tz },
           colorId: toCalendarColorId(itemColor),
         };
-        const res = await fetch(
+        const res = await _fetchWithRetry(
           'https://www.googleapis.com/calendar/v3/calendars/primary/events',
           {
             method: 'POST',
-            headers: {
-              Authorization: `Bearer ${tokenRef.current}`,
-              'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
           },
         );
+        if (!res) {
+          setLastError('トークンの更新に失敗しました。再接続してください');
+          return null;
+        }
         if (!res.ok) {
-          if (res.status === 401) {
-            tokenRef.current = null;
-            localStorage.removeItem(LS_ACCESS_TOKEN);
-            setConnected(false);
-            setLastError('トークンが期限切れです。再接続してください');
-          } else {
-            const err = await res.json().catch(() => ({}));
-            setLastError((err as { error?: { message?: string } }).error?.message ?? `API error ${res.status}`);
-          }
+          const err = await res.json().catch(() => ({}));
+          setLastError((err as { error?: { message?: string } }).error?.message ?? `API error ${res.status}`);
           return null;
         }
         const data = await res.json().catch(() => ({}));
@@ -385,15 +450,11 @@ export function useGoogleCalendar(): GoogleCalendarHook {
         setSyncing(false);
       }
     },
-    [],
+    [], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   const createHabitEvent = useCallback(
     async (dateStr: string, habitName: string, color: string | null): Promise<string | null> => {
-      if (!tokenRef.current) {
-        setLastError('Google カレンダーに接続してください');
-        return null;
-      }
       setSyncing(true);
       setLastError(null);
       try {
@@ -411,27 +472,21 @@ export function useGoogleCalendar(): GoogleCalendarHook {
           end:   { date: nextDateStr },
           colorId: toCalendarColorId(color),
         };
-        const res = await fetch(
+        const res = await _fetchWithRetry(
           'https://www.googleapis.com/calendar/v3/calendars/primary/events',
           {
             method: 'POST',
-            headers: {
-              Authorization: `Bearer ${tokenRef.current}`,
-              'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
           },
         );
+        if (!res) {
+          setLastError('トークンの更新に失敗しました。再接続してください');
+          return null;
+        }
         if (!res.ok) {
-          if (res.status === 401) {
-            tokenRef.current = null;
-            localStorage.removeItem(LS_ACCESS_TOKEN);
-            setConnected(false);
-            setLastError('トークンが期限切れです。再接続してください');
-          } else {
-            const err = await res.json().catch(() => ({}));
-            setLastError((err as { error?: { message?: string } }).error?.message ?? `API error ${res.status}`);
-          }
+          const err = await res.json().catch(() => ({}));
+          setLastError((err as { error?: { message?: string } }).error?.message ?? `API error ${res.status}`);
           return null;
         }
         const data = await res.json().catch(() => ({}));
@@ -443,33 +498,25 @@ export function useGoogleCalendar(): GoogleCalendarHook {
         setSyncing(false);
       }
     },
-    [],
+    [], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   const deleteEvent = useCallback(
     async (gcalEventId: string): Promise<void> => {
-      if (!tokenRef.current) return;
       try {
-        const res = await fetch(
+        const res = await _fetchWithRetry(
           `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(gcalEventId)}`,
-          {
-            method: 'DELETE',
-            headers: {
-              Authorization: `Bearer ${tokenRef.current}`,
-            },
-          },
+          { method: 'DELETE', headers: {} },
         );
-        if (res.status === 401) {
-          tokenRef.current = null;
-          localStorage.removeItem(LS_ACCESS_TOKEN);
-          setConnected(false);
-          setLastError('トークンが期限切れです。再接続してください');
+        if (res && !res.ok && res.status !== 404 && res.status !== 410) {
+          // 404/410 means already deleted — not an error
+          setLastError(`削除エラー: ${res.status}`);
         }
       } catch (e) {
         setLastError(e instanceof Error ? e.message : String(e));
       }
     },
-    [],
+    [], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   return { connected, isConnecting, syncing, lastError, clientId, setClientId, connect, autoConnect, disconnect, getToken, createEvent, createHabitEvent, deleteEvent };
