@@ -26,6 +26,21 @@ type PendingGcalHabit = { type: 'habit'; dateStr: string; habitId: string; habit
 type PendingGcalSess  = { type: 'session'; session: FocusSession; itemName: string; itemColor: string | null };
 type PendingGcalEvent = PendingGcalHabit | PendingGcalSess;
 
+/** Resolve an itemId → display name, including sub-habits with "Parent › Sub" format. */
+function resolveItemName(
+  itemId: string,
+  habitList: { id: string; name: string; subHabits?: { id: string; name: string; emoji?: string }[] }[],
+  taskList: { id: string; title: string }[],
+): string {
+  const habit = habitList.find(h => h.id === itemId);
+  if (habit) return habit.name;
+  for (const h of habitList) {
+    const sh = h.subHabits?.find(s => s.id === itemId);
+    if (sh) return `${h.name} › ${sh.emoji ? sh.emoji + ' ' : ''}${sh.name}`;
+  }
+  return taskList.find(t => t.id === itemId)?.title ?? 'Focus Session';
+}
+
 /** Returns YYYY-MM-DD in the user's local timezone (not UTC). */
 function localDateStr(d: Date = new Date()): string {
   return [
@@ -188,9 +203,7 @@ export default function App() {
   const handleSessionSaved = useCallback((session: FocusSession) => {
     if (!session.itemId) return;
     if (localStorage.getItem('hd_gcal_ever_connected') !== '1') return;
-    const habit = habits.habits.find(h => h.id === session.itemId);
-    const task  = tasks.tasks.find(t => t.id === session.itemId);
-    const name  = habit?.name ?? task?.title ?? 'Focus Session';
+    const name  = resolveItemName(session.itemId, habits.habits, [...tasks.tasks, ...tasks.completedTasks]);
     const color = itemColorMap[session.itemId] ?? null;
     gcal.createEvent(session, name, color).then(eventId => {
       if (eventId) {
@@ -284,10 +297,9 @@ export default function App() {
       d.setDate(d.getDate() - (6 - i));
       const key = localDateStr(d);
       const log = timeLogs.timeLogs[key] ?? {};
+      const allTasks = [...tasks.tasks, ...tasks.completedTasks];
       const segments = Object.entries(log).map(([itemId, seconds]) => {
-        const habit = habits.habits.find(h => h.id === itemId);
-        const task = tasks.tasks.find(t => t.id === itemId);
-        const name = habit?.name ?? task?.title ?? itemId;
+        const name = resolveItemName(itemId, habits.habits, allTasks);
         return { itemId, name, color: itemColorMap[itemId] ?? '#ccc', seconds: seconds as number };
       }).filter(s => s.seconds > 0).sort((a, b) => b.seconds - a.seconds);
       return {
@@ -305,10 +317,9 @@ export default function App() {
       d.setDate(d.getDate() - (29 - i));
       const key = localDateStr(d);
       const log = timeLogs.timeLogs[key] ?? {};
+      const allTasks = [...tasks.tasks, ...tasks.completedTasks];
       const segments = Object.entries(log).map(([itemId, seconds]) => {
-        const habit = habits.habits.find(h => h.id === itemId);
-        const task = tasks.tasks.find(t => t.id === itemId);
-        const name = habit?.name ?? task?.title ?? itemId;
+        const name = resolveItemName(itemId, habits.habits, allTasks);
         return { itemId, name, color: itemColorMap[itemId] ?? '#ccc', seconds: seconds as number };
       }).filter(s => s.seconds > 0).sort((a, b) => b.seconds - a.seconds);
       const label = i === 0 || d.getDate() === 1
@@ -339,22 +350,34 @@ export default function App() {
 
   // Donut chart segments (today's time)
   const donutSegments = useMemo(() => {
+    const allTasks = [...tasks.tasks, ...tasks.completedTasks];
     return Object.entries(todayLogs)
       .filter(([, s]) => s > 0)
-      .map(([itemId, seconds]) => {
-        const habit = habits.habits.find(h => h.id === itemId);
-        const task = tasks.tasks.find(t => t.id === itemId);
-        return {
-          itemId,
-          name: habit?.name ?? task?.title ?? itemId,
-          color: itemColorMap[itemId] ?? '#ccc',
-          seconds: seconds as number,
-        };
-      })
+      .map(([itemId, seconds]) => ({
+        itemId,
+        name: resolveItemName(itemId, habits.habits, allTasks),
+        color: itemColorMap[itemId] ?? '#ccc',
+        seconds: seconds as number,
+      }))
       .sort((a, b) => b.seconds - a.seconds);
-  }, [todayLogs, habits.habits, tasks.tasks, itemColorMap]);
+  }, [todayLogs, habits.habits, tasks.tasks, tasks.completedTasks, itemColorMap]);
 
   const completedCount = (habits.completions[habits.selectedDate] ?? []).length;
+
+  // Map itemId → { name, color } for FocusTimer session list display
+  const sessionItemMeta = useMemo(() => {
+    const allTasks = [...tasks.tasks, ...tasks.completedTasks];
+    const meta: Record<string, { name: string; color: string }> = {};
+    timer.todaySessions.forEach(s => {
+      if (s.itemId && !meta[s.itemId]) {
+        meta[s.itemId] = {
+          name: resolveItemName(s.itemId, habits.habits, allTasks),
+          color: itemColorMap[s.itemId] ?? '#9a938c',
+        };
+      }
+    });
+    return meta;
+  }, [timer.todaySessions, habits.habits, tasks.tasks, tasks.completedTasks, itemColorMap]);
 
   // Update flush function every render so it captures fresh state
   flushPendingRef.current = () => {
@@ -384,9 +407,7 @@ export default function App() {
         return localDateStr(new Date(s.startTime)) === todayStr;
       })
       .forEach(s => {
-        const habit = habits.habits.find(h => h.id === s.itemId);
-        const task  = tasks.tasks.find(t => t.id === s.itemId);
-        const name  = habit?.name ?? task?.title ?? 'Focus Session';
+        const name  = resolveItemName(s.itemId!, habits.habits, [...tasks.tasks, ...tasks.completedTasks]);
         const color = itemColorMap[s.itemId!] ?? null;
         gcal.createEvent(s, name, color).then(eventId => {
           if (eventId) updateSessionGcalIdRef.current?.(s.id, eventId);
@@ -523,6 +544,7 @@ export default function App() {
         gcalConnected={gcal.connected}
         gcalSyncing={gcal.syncing}
         gcalLastError={gcal.lastError}
+        sessionItemMeta={sessionItemMeta}
         gcalMobileSetupUrl={gcal.clientId
           ? `${window.location.origin}${window.location.pathname}#gcal=${encodeURIComponent(gcal.clientId)}`
           : null}

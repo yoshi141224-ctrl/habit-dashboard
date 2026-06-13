@@ -17,6 +17,7 @@ interface Props {
   onReset: () => void;
   onNotesChange: (v: string) => void;
   formatTime: (s: number) => string;
+  sessionItemMeta?: Record<string, { name: string; color: string }>;
   // Google Calendar
   gcalConnected: boolean;
   gcalSyncing: boolean;
@@ -46,6 +47,7 @@ export default function FocusTimer({
   status, elapsed, todaySessions, totalFocusSeconds,
   pendingNotes, activeItemName, activeItemColor,
   onStart, onPause, onReset, onNotesChange, formatTime,
+  sessionItemMeta,
   gcalConnected, gcalSyncing, gcalLastError, gcalMobileSetupUrl,
   onGcalConnect, onGcalDisconnect, onGcalSwitchAccount,
   onDeleteSession,
@@ -230,32 +232,52 @@ export default function FocusTimer({
             <p className="ft-empty">セッションなし</p>
           ) : (
             <ul className="ft-sessions-list">
-              {todaySessions.map((s, i) => (
-                <li key={s.id} className="ft-session-item">
-                  <span className="ft-session-num">{i + 1}</span>
-                  <span className="ft-session-time">
-                    {fmtShort(s.startTime)} – {fmtShort(s.endTime)}
-                  </span>
-                  <span className="ft-session-dur">{fmtDuration(s.durationSeconds)}</span>
-                  {gcalConnected && (
-                    <span className="ft-session-gcal" title="Synced to Google Calendar">📅</span>
-                  )}
-                  {onDeleteSession && (
-                    <button
-                      type="button"
-                      className="ft-session-del"
-                      onClick={() => onDeleteSession(s.id)}
-                      title="セッションを削除"
-                    >
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                        <polyline points="3 6 5 6 21 6"/>
-                        <path d="M19 6l-1 14H6L5 6"/>
-                        <path d="M10 11v6M14 11v6"/>
-                      </svg>
-                    </button>
-                  )}
-                </li>
-              ))}
+              {todaySessions.map((s, i) => {
+                const meta = s.itemId ? sessionItemMeta?.[s.itemId] : undefined;
+                return (
+                  <li key={s.id} className="ft-session-item">
+                    {/* Row 1: number + item name */}
+                    <div className="ft-session-row1">
+                      <span className="ft-session-num">{i + 1}</span>
+                      {meta ? (
+                        <span
+                          className="ft-session-name"
+                          style={{ color: meta.color, background: meta.color + '18' }}
+                        >
+                          <span className="ft-session-name-dot" style={{ background: meta.color }} />
+                          {meta.name}
+                        </span>
+                      ) : (
+                        <span className="ft-session-name ft-session-name--empty">フォーカスセッション</span>
+                      )}
+                      <span className="ft-session-dur">{fmtDuration(s.durationSeconds)}</span>
+                      {gcalConnected && (
+                        <span className="ft-session-gcal" title="Synced to Google Calendar">📅</span>
+                      )}
+                      {onDeleteSession && (
+                        <button
+                          type="button"
+                          className="ft-session-del"
+                          onClick={() => onDeleteSession(s.id)}
+                          title="セッションを削除"
+                        >
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                            <polyline points="3 6 5 6 21 6"/>
+                            <path d="M19 6l-1 14H6L5 6"/>
+                            <path d="M10 11v6M14 11v6"/>
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                    {/* Row 2: time range */}
+                    <div className="ft-session-row2">
+                      <span className="ft-session-time">
+                        {fmtShort(s.startTime)} – {fmtShort(s.endTime)}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
           <div className="ft-total">
