@@ -196,10 +196,16 @@ export function useGoogleCalendar(): GoogleCalendarHook {
     // 4. Pre-load GIS so autoConnect (silent refresh) is fast
     loadGIS().catch(() => {});
 
-    // 5. If user has previously connected but token is now expired, silently refresh
+    // 5. If user has previously connected but token is now expired, silently refresh.
+    //    Try after 1s (GIS script may still be loading), retry after 5s more on failure.
     const everConnected = localStorage.getItem(LS_EVER_CONNECTED) === '1';
     if (everConnected && !readStoredToken()) {
-      setTimeout(() => { autoConnectRef.current().catch(() => {}); }, 500);
+      setTimeout(async () => {
+        const ok = await autoConnectRef.current().catch(() => false);
+        if (!ok) {
+          setTimeout(() => { autoConnectRef.current().catch(() => {}); }, 5000);
+        }
+      }, 1000);
     }
   }, []); // mount only
 

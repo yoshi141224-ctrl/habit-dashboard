@@ -21,6 +21,15 @@ import { ITEM_COLORS } from './types';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+/** Returns YYYY-MM-DD in the user's local timezone (not UTC). */
+function localDateStr(d: Date = new Date()): string {
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, '0'),
+    String(d.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
 export default function App() {
   const habits = useHabits();
   const tasks = useTasks();
@@ -33,9 +42,9 @@ export default function App() {
   const handleTokenExpired = useCallback(() => {
     gcal.autoConnect().then(ok => {
       if (!ok) {
+        // Silent refresh failed — disconnect so Drive sync stops, but keep the
+        // banner-dismissed flag so we don't re-show the banner unexpectedly.
         gcal.disconnect();
-        localStorage.removeItem('hd_gcal_banner_dismissed');
-        // setShowGcalBanner is set below via gcal.connected effect
       }
     }).catch(() => {
       gcal.disconnect();
@@ -52,16 +61,6 @@ export default function App() {
   const [showGcalBanner, setShowGcalBanner] = useState(
     () => !gcalBannerDismissed(),
   );
-
-  // On mount: if clientId is stored, try silent auto-connect
-  useEffect(() => {
-    if (gcal.clientId && !gcal.connected) {
-      gcal.autoConnect().then(ok => {
-        if (ok) setShowGcalBanner(false); // connected silently → hide banner
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // run once on mount
 
   function handleGcalBannerConnect(): Promise<void> {
     return gcal.connect();
@@ -156,8 +155,7 @@ export default function App() {
   // onComplete: saves time to timeLogs
   const handleTimerComplete = useCallback((itemId: string | null, seconds: number) => {
     if (itemId && seconds > 0) {
-      const today = new Date().toISOString().slice(0, 10);
-      timeLogs.addTime(today, itemId, seconds);
+      timeLogs.addTime(localDateStr(), itemId, seconds);
     }
   }, [timeLogs]);
 
@@ -249,8 +247,8 @@ export default function App() {
     timer.deleteSession(sessionId);
   }
 
-  // Today's time logs
-  const today = new Date().toISOString().slice(0, 10);
+  // Today's time logs — use local timezone so midnight doesn't flip to yesterday (UTC)
+  const today = localDateStr();
   const todayLogs = timeLogs.getTimeForDate(today);
 
   // Stacked bar chart data (last 7 days)
@@ -258,7 +256,7 @@ export default function App() {
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date();
       d.setDate(d.getDate() - (6 - i));
-      const key = d.toISOString().slice(0, 10);
+      const key = localDateStr(d);
       const log = timeLogs.timeLogs[key] ?? {};
       const segments = Object.entries(log).map(([itemId, seconds]) => {
         const habit = habits.habits.find(h => h.id === itemId);
@@ -279,7 +277,7 @@ export default function App() {
     return Array.from({ length: 30 }, (_, i) => {
       const d = new Date();
       d.setDate(d.getDate() - (29 - i));
-      const key = d.toISOString().slice(0, 10);
+      const key = localDateStr(d);
       const log = timeLogs.timeLogs[key] ?? {};
       const segments = Object.entries(log).map(([itemId, seconds]) => {
         const habit = habits.habits.find(h => h.id === itemId);

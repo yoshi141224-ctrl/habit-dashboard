@@ -109,7 +109,7 @@ export default function ToDoList({
                     placeholder="タスク名"
                     onChange={e => setEditState(prev => prev ? { ...prev, title: e.target.value } : null)}
                     onKeyDown={e => {
-                      if (e.key === 'Enter')  { e.preventDefault(); timeInputRef.current?.focus(); }
+                      if (e.key === 'Enter')  { e.preventDefault(); }
                       if (e.key === 'Escape') { e.preventDefault(); setEditState(null); }
                     }}
                   />
