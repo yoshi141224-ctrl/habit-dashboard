@@ -385,24 +385,28 @@ export function useGoogleCalendar(): GoogleCalendarHook {
 
   /**
    * Fetch wrapper that retries once after a silent token refresh on 401.
+   * Uses getToken() (which checks expiry) so we never waste a round-trip
+   * sending an already-expired token to the API.
    * Returns the response on success, or null if both attempts fail.
    */
   async function _fetchWithRetry(url: string, init: RequestInit): Promise<Response | null> {
-    // Ensure we have a token before trying
-    if (!tokenRef.current) {
+    // getToken() checks the stored expiry and clears tokenRef if expired.
+    // This prevents sending a stale token and getting a needless 401.
+    let token = getToken();
+    if (!token) {
       const ok = await autoConnectRef.current();
-      if (!ok || !tokenRef.current) return null;
+      token = tokenRef.current;
+      if (!ok || !token) return null;
     }
 
-    const firstInit = {
+    const res = await fetch(url, {
       ...init,
-      headers: { ...(init.headers as Record<string, string>), Authorization: `Bearer ${tokenRef.current}` },
-    };
-    const res = await fetch(url, firstInit);
+      headers: { ...(init.headers as Record<string, string>), Authorization: `Bearer ${token}` },
+    });
 
     if (res.status !== 401) return res;
 
-    // Token expired mid-request — attempt silent refresh and retry once
+    // 401 despite fresh token — server may have revoked it. Refresh once and retry.
     const refreshed = await autoConnectRef.current();
     if (!refreshed || !tokenRef.current) return null;
 

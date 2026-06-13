@@ -16,10 +16,15 @@ import FocusTimer from './components/FocusTimer';
 import CompletedTasksLog from './components/CompletedTasksLog';
 import TaskCalendar from './components/TaskCalendar';
 import HabitStatsView from './components/HabitStatsView';
-import type { StackedBarDatum } from './types';
+import type { StackedBarDatum, FocusSession } from './types';
 import { ITEM_COLORS } from './types';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/** Pending GCal events — queued when creation fails, retried on next successful connect */
+type PendingGcalHabit = { type: 'habit'; dateStr: string; habitId: string; habitName: string; color: string | null };
+type PendingGcalSess  = { type: 'session'; session: FocusSession; itemName: string; itemColor: string | null };
+type PendingGcalEvent = PendingGcalHabit | PendingGcalSess;
 
 /** Returns YYYY-MM-DD in the user's local timezone (not UTC). */
 function localDateStr(d: Date = new Date()): string {
@@ -35,8 +40,15 @@ export default function App() {
   const tasks = useTasks();
   const timeLogs = useTimeLogs();
   const gcal = useGoogleCalendar();
+  const pendingGcalRef = useRef<PendingGcalEvent[]>([]);
+  // flushPendingRef is updated every render so it always closes over fresh state
+  const flushPendingRef = useRef<() => void>(() => {});
+
   const handleSyncPull = useCallback(() => {
     window.dispatchEvent(new CustomEvent('hd-sync-loaded'));
+    // Give localStorage a moment to settle, then flush pending events + pick up
+    // any sessions that arrived via Drive from another device.
+    setTimeout(() => flushPendingRef.current(), 1500);
   }, []);
   // When Drive gets a 401: token expired. Try silent refresh; if fails, disconnect + show banner.
   const handleTokenExpired = useCallback(() => {
@@ -109,6 +121,8 @@ export default function App() {
       // After initial pull settles, push local data to Drive.
       // Handles the case where the user edited habits before connecting GCal.
       driveSync.startPolling().then(() => driveSync.schedulePush());
+      // Flush any events that failed while the token was unavailable
+      setTimeout(() => flushPendingRef.current(), 500);
     } else {
       driveSync.stopPolling();
     }
@@ -171,14 +185,20 @@ export default function App() {
   const updateSessionGcalIdRef = useRef<((sessionId: string, gcalEventId: string) => void) | null>(null);
 
   // onSessionSaved: sync to Google Calendar when a session is completed
-  const handleSessionSaved = useCallback((session: import('./types').FocusSession) => {
-    if (!gcal.connected || !session.itemId) return;
+  const handleSessionSaved = useCallback((session: FocusSession) => {
+    if (!session.itemId) return;
+    if (localStorage.getItem('hd_gcal_ever_connected') !== '1') return;
     const habit = habits.habits.find(h => h.id === session.itemId);
     const task  = tasks.tasks.find(t => t.id === session.itemId);
     const name  = habit?.name ?? task?.title ?? 'Focus Session';
     const color = itemColorMap[session.itemId] ?? null;
     gcal.createEvent(session, name, color).then(eventId => {
-      if (eventId) updateSessionGcalIdRef.current?.(session.id, eventId);
+      if (eventId) {
+        updateSessionGcalIdRef.current?.(session.id, eventId);
+      } else {
+        // Token not ready — queue for retry when connection is established
+        pendingGcalRef.current.push({ type: 'session', session, itemName: name, itemColor: color });
+      }
     });
   }, [gcal, habits.habits, tasks.tasks, itemColorMap]);
 
@@ -218,14 +238,20 @@ export default function App() {
   function handleToggleHabit(habitId: string, date: string) {
     const wasChecked = (habits.completions[date] ?? []).includes(habitId);
     habits.toggleHabit(habitId, date);
-    if (!gcal.connected) return;
+    if (localStorage.getItem('hd_gcal_ever_connected') !== '1') return;
     if (!wasChecked) {
       // チェック → 終日イベント作成
       const habit = habits.habits.find(h => h.id === habitId);
       if (!habit) return;
-      gcal.createHabitEvent(date, habit.name, itemColorMap[habitId] ?? null)
+      const color = itemColorMap[habitId] ?? null;
+      gcal.createHabitEvent(date, habit.name, color)
         .then(eventId => {
-          if (eventId) setHabitGcalEvents(prev => ({ ...prev, [`${date}:${habitId}`]: eventId }));
+          if (eventId) {
+            setHabitGcalEvents(prev => ({ ...prev, [`${date}:${habitId}`]: eventId }));
+          } else {
+            // Queue for retry on reconnect
+            pendingGcalRef.current.push({ type: 'habit', dateStr: date, habitId, habitName: habit.name, color });
+          }
         });
     } else {
       // チェック解除 → イベント削除
@@ -329,6 +355,44 @@ export default function App() {
   }, [todayLogs, habits.habits, tasks.tasks, itemColorMap]);
 
   const completedCount = (habits.completions[habits.selectedDate] ?? []).length;
+
+  // Update flush function every render so it captures fresh state
+  flushPendingRef.current = () => {
+    if (!gcal.connected) return;
+
+    // 1. Retry previously failed events
+    const queued = pendingGcalRef.current.splice(0);
+    queued.forEach(item => {
+      if (item.type === 'habit') {
+        gcal.createHabitEvent(item.dateStr, item.habitName, item.color).then(eventId => {
+          if (eventId) setHabitGcalEvents(prev => ({ ...prev, [`${item.dateStr}:${item.habitId}`]: eventId }));
+        });
+      } else {
+        gcal.createEvent(item.session, item.itemName, item.itemColor).then(eventId => {
+          if (eventId) updateSessionGcalIdRef.current?.(item.session.id, eventId);
+        });
+      }
+    });
+
+    // 2. Sync today's sessions that have no GCal event yet (e.g. arrived via Drive sync)
+    const todayStr = localDateStr();
+    let allSessions: FocusSession[] = [];
+    try { allSessions = JSON.parse(localStorage.getItem('hd_sessions') ?? '[]'); } catch { /* */ }
+    allSessions
+      .filter(s => {
+        if (!s.itemId || s.gcalEventId || (s.durationSeconds ?? 0) < 30) return false;
+        return localDateStr(new Date(s.startTime)) === todayStr;
+      })
+      .forEach(s => {
+        const habit = habits.habits.find(h => h.id === s.itemId);
+        const task  = tasks.tasks.find(t => t.id === s.itemId);
+        const name  = habit?.name ?? task?.title ?? 'Focus Session';
+        const color = itemColorMap[s.itemId!] ?? null;
+        gcal.createEvent(s, name, color).then(eventId => {
+          if (eventId) updateSessionGcalIdRef.current?.(s.id, eventId);
+        });
+      });
+  };
 
   return (
     <>
