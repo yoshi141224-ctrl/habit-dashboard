@@ -448,6 +448,7 @@
 .hd-sub-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap; /* lets .hd-sub-sessions (width:100%) break to its own line */
   gap: 6px;
   padding: 6px 4px 6px 0;
   border-radius: 5px;
@@ -496,7 +497,7 @@
   font-weight: 500;
   color: var(--tx-1, #17120B);
   flex: 1;
-  min-width: 0;
+  min-width: 30px; /* prevent complete disappearance when spent badge appears */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
