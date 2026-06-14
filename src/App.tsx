@@ -199,21 +199,35 @@ export default function App() {
   // updateSessionGcalId を ref 経由で参照（循環参照を避けるため）
   const updateSessionGcalIdRef = useRef<((sessionId: string, gcalEventId: string) => void) | null>(null);
 
-  // onSessionSaved: sync to Google Calendar when a session is completed
+  // Tracks session IDs that already have an in-flight or completed GCal event.
+  // This is the single source of truth that prevents a session from being sent
+  // to Google Calendar more than once — no matter which path triggers the sync
+  // (timer stop, pending-queue flush, or the "unsynced today sessions" scan).
+  const gcalSessionSync = useRef<Set<string>>(new Set());
+
+  // Unified session → Google Calendar sync with built-in de-duplication.
+  // onSessionSaved (timer stop) and the flush logic all route through this.
   const handleSessionSaved = useCallback((session: FocusSession) => {
     if (!session.itemId) return;
+    if (session.gcalEventId) return;                      // already has an event
+    if (gcalSessionSync.current.has(session.id)) return;  // in-flight or done
     if (localStorage.getItem('hd_gcal_ever_connected') !== '1') return;
+    // Claim this session synchronously so a concurrent flush can't double-create.
+    gcalSessionSync.current.add(session.id);
     const name  = resolveItemName(session.itemId, habits.habits, [...tasks.tasks, ...tasks.completedTasks]);
     const color = itemColorMap[session.itemId] ?? null;
     gcal.createEvent(session, name, color).then(eventId => {
       if (eventId) {
         updateSessionGcalIdRef.current?.(session.id, eventId);
       } else {
-        // Token not ready — queue for retry when connection is established
+        // Token not ready — release the claim and queue for retry on reconnect
+        gcalSessionSync.current.delete(session.id);
         pendingGcalRef.current.push({ type: 'session', session, itemName: name, itemColor: color });
       }
+    }).catch(() => {
+      gcalSessionSync.current.delete(session.id);
     });
-  }, [gcal, habits.habits, tasks.tasks, itemColorMap]);
+  }, [gcal, habits.habits, tasks.tasks, tasks.completedTasks, itemColorMap]);
 
   const timer = useTimer({ onComplete: handleTimerComplete, onSessionSaved: handleSessionSaved });
 
@@ -391,9 +405,9 @@ export default function App() {
           if (eventId) setHabitGcalEvents(prev => ({ ...prev, [`${item.dateStr}:${item.habitId}`]: eventId }));
         });
       } else {
-        gcal.createEvent(item.session, item.itemName, item.itemColor).then(eventId => {
-          if (eventId) updateSessionGcalIdRef.current?.(item.session.id, eventId);
-        });
+        // Route through the de-duplicating sync so a queued retry can't collide
+        // with the scan below or with a direct timer-stop sync.
+        handleSessionSaved(item.session);
       }
     });
 
@@ -406,13 +420,7 @@ export default function App() {
         if (!s.itemId || s.gcalEventId || (s.durationSeconds ?? 0) < 30) return false;
         return localDateStr(new Date(s.startTime)) === todayStr;
       })
-      .forEach(s => {
-        const name  = resolveItemName(s.itemId!, habits.habits, [...tasks.tasks, ...tasks.completedTasks]);
-        const color = itemColorMap[s.itemId!] ?? null;
-        gcal.createEvent(s, name, color).then(eventId => {
-          if (eventId) updateSessionGcalIdRef.current?.(s.id, eventId);
-        });
-      });
+      .forEach(s => handleSessionSaved(s));
   };
 
   return (
