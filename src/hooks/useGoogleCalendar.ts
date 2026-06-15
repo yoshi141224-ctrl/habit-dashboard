@@ -116,8 +116,13 @@ export function useGoogleCalendar(): GoogleCalendarHook {
     () => DEFAULT_CLIENT_ID,
   );
   // Eagerly read from localStorage so the first render is already in the correct connected state.
-  // This prevents a false→true flash that could cause a blank page on page refresh.
-  const [connected,    setConnected]    = useState(() => readStoredToken() !== null);
+  // "connected" is sticky: once the user has ever linked Google, we stay connected in the UI
+  // even if the access token momentarily expires. The token is refreshed silently in the
+  // background, so a transient expiry must never flip the app back to "disconnected".
+  // Only an explicit user disconnect clears this.
+  const [connected,    setConnected]    = useState(
+    () => localStorage.getItem(LS_EVER_CONNECTED) === '1' || readStoredToken() !== null,
+  );
   const [isConnecting, setIsConnecting] = useState(false);
   const [syncing,      setSyncing]      = useState(false);
   const [lastError,    setLastError]    = useState<string | null>(null);
@@ -226,11 +231,14 @@ export function useGoogleCalendar(): GoogleCalendarHook {
         setConnected(true);
       } else {
         tokenRef.current = null;
-        setConnected(false);
-        // BFCache restore with no token: silently try to reconnect
+        // BFCache restore with no token. If the user has ever connected, keep the
+        // connection "alive" in the UI and refresh the token silently — never flip
+        // to disconnected on our own.
         const everConnected = localStorage.getItem(LS_EVER_CONNECTED) === '1';
         if (everConnected) {
           setTimeout(() => { autoConnectRef.current().catch(() => {}); }, 300);
+        } else {
+          setConnected(false);
         }
       }
     }
@@ -364,11 +372,15 @@ export function useGoogleCalendar(): GoogleCalendarHook {
     return Promise.resolve();
   }
 
+  // Explicit, user-initiated disconnect ("連携を解除" / "別のアカウントで変更").
+  // This is now the ONLY way the app becomes disconnected — the token never expires
+  // us out automatically. So we clear LS_EVER_CONNECTED to stop background reconnects;
+  // otherwise the app would silently re-link right after the user asked to unlink.
   function disconnect() {
     tokenRef.current = null;
     localStorage.removeItem(LS_ACCESS_TOKEN);
     localStorage.removeItem(LS_TOKEN_EXPIRY);
-    // NOTE: LS_EVER_CONNECTED is intentionally NOT cleared so auto-reconnect still works
+    localStorage.removeItem(LS_EVER_CONNECTED);
     setConnected(false);
     setLastError(null);
   }

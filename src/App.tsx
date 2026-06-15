@@ -65,17 +65,12 @@ export default function App() {
     // any sessions that arrived via Drive from another device.
     setTimeout(() => flushPendingRef.current(), 1500);
   }, []);
-  // When Drive gets a 401: token expired. Try silent refresh; if fails, disconnect + show banner.
+  // When Drive gets a 401: the access token expired. Silently refresh it in the
+  // background. We NEVER disconnect on failure — a transient refresh failure must
+  // not drop the user's Google link (they'd otherwise have to reconnect manually).
+  // The periodic refresh + the next user interaction will recover the token.
   const handleTokenExpired = useCallback(() => {
-    gcal.autoConnect().then(ok => {
-      if (!ok) {
-        // Silent refresh failed — disconnect so Drive sync stops, but keep the
-        // banner-dismissed flag so we don't re-show the banner unexpectedly.
-        gcal.disconnect();
-      }
-    }).catch(() => {
-      gcal.disconnect();
-    });
+    gcal.autoConnect().catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const driveSync = useDriveSync({
     getToken: gcal.getToken,
@@ -158,6 +153,15 @@ export default function App() {
   useEffect(() => {
     if (gcal.connected) driveSync.schedulePush();
   }, [allDataForSync]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Periodically retry any GCal events that failed to sync (e.g. the token was
+  // briefly expired when a focus session ended). Once the background refresh has
+  // a fresh token, these flush through automatically — the user never has to
+  // manually reconnect or refresh the page to get their sessions onto Calendar.
+  useEffect(() => {
+    const id = setInterval(() => { flushPendingRef.current(); }, 30 * 1000);
+    return () => clearInterval(id);
+  }, []);
 
   // Selected item for the timer (habit or task)
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
