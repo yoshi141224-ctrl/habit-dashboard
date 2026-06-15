@@ -4,6 +4,8 @@ import './GoogleCalendarBanner.css';
 interface Props {
   /** Client ID が登録済みで連携待ちの場合 true */
   hasClientId: boolean;
+  /** 連携は済んでいるがトークンの自動更新に失敗 → 再連携が必要な場合 true */
+  needsReauth?: boolean;
   isConnecting: boolean;
   lastError: string | null;
   clientId: string;
@@ -14,6 +16,7 @@ interface Props {
 
 export default function GoogleCalendarBanner({
   hasClientId,
+  needsReauth = false,
   isConnecting,
   lastError,
   clientId,
@@ -39,7 +42,12 @@ export default function GoogleCalendarBanner({
             </svg>
           </span>
           <div className="gcb-text">
-            {hasClientId ? (
+            {needsReauth ? (
+              <>
+                <p className="gcb-title">Google 連携の再接続が必要です</p>
+                <p className="gcb-desc">自動更新が切れました。もう一度タップして連携すると、セッションのカレンダー記録が再開します。</p>
+              </>
+            ) : hasClientId ? (
               <>
                 <p className="gcb-title">Google カレンダーと連携しますか？</p>
                 <p className="gcb-desc">タップするだけで習慣チェックやセッションをカレンダーに自動記録。</p>

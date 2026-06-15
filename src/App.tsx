@@ -117,13 +117,20 @@ export default function App() {
 
   // Show/hide banner based on connection state
   useEffect(() => {
-    if (gcal.connected) {
+    if (gcal.connected && !gcal.needsReauth) {
       setShowGcalBanner(false);
     } else if (!gcalBannerDismissed()) {
       // Token expired / disconnected → show reconnect banner
       setShowGcalBanner(true);
     }
-  }, [gcal.connected]);
+  }, [gcal.connected, gcal.needsReauth]);
+
+  // Silent token refresh failed → force the reconnect banner even if the user
+  // previously dismissed it. Without a fresh token, focus sessions can't reach
+  // Google Calendar, so this is important enough to re-surface.
+  useEffect(() => {
+    if (gcal.needsReauth) setShowGcalBanner(true);
+  }, [gcal.needsReauth]);
 
   // Start/stop Drive polling based on connection state
   useEffect(() => {
@@ -429,10 +436,12 @@ export default function App() {
 
   return (
     <>
-      {/* Google Calendar connection banner — fixed at top, shown on first visit or when disconnected */}
-      {showGcalBanner && !gcal.connected && (
+      {/* Google Calendar connection banner — shown on first visit, when disconnected,
+          or when the silent token refresh failed and a re-grant is needed. */}
+      {showGcalBanner && (!gcal.connected || gcal.needsReauth) && (
         <GoogleCalendarBanner
           hasClientId={!!gcal.clientId}
+          needsReauth={gcal.needsReauth}
           isConnecting={gcal.isConnecting}
           lastError={gcal.lastError}
           clientId={gcal.clientId}

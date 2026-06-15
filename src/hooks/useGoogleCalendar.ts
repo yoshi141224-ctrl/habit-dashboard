@@ -76,6 +76,8 @@ interface GWindow extends Window {
 
 export interface GoogleCalendarHook {
   connected: boolean;
+  /** True when the silent token refresh has failed and the user must re-grant access. */
+  needsReauth: boolean;
   isConnecting: boolean;
   syncing: boolean;
   lastError: string | null;
@@ -126,6 +128,7 @@ export function useGoogleCalendar(): GoogleCalendarHook {
   const [isConnecting, setIsConnecting] = useState(false);
   const [syncing,      setSyncing]      = useState(false);
   const [lastError,    setLastError]    = useState<string | null>(null);
+  const [needsReauth,  setNeedsReauth]  = useState(false);
 
   // Also eagerly initialize tokenRef so getToken() works from the very first render.
   const tokenRef       = useRef<string | null>(readStoredToken()?.token ?? null);
@@ -183,6 +186,7 @@ export function useGoogleCalendar(): GoogleCalendarHook {
         localStorage.setItem(LS_EVER_CONNECTED, '1');
         tokenRef.current = token;
         setConnected(true);
+        setNeedsReauth(false);
         setLastError(null);
         try {
           window.history.replaceState(null, '', window.location.origin + window.location.pathname + window.location.search);
@@ -289,6 +293,7 @@ export function useGoogleCalendar(): GoogleCalendarHook {
     localStorage.setItem(LS_TOKEN_EXPIRY, String(expiry));
     localStorage.setItem(LS_EVER_CONNECTED, '1'); // mark as permanently ever-connected
     setConnected(true);
+    setNeedsReauth(false); // fresh token obtained — no re-auth needed
     setLastError(null);
     return true;
   }
@@ -302,45 +307,42 @@ export function useGoogleCalendar(): GoogleCalendarHook {
     const id = clientId.trim();
     if (!id) return false;
     if (isConnectingRef.current) return connected;
-    if (connected && getToken()) return true; // still have a valid token
+    if (connected && getToken()) { setNeedsReauth(false); return true; } // still have a valid token
     isConnectingRef.current = true;
     setIsConnecting(true);
     setLastError(null);
+    let ok = false;
     try {
       await loadGIS();
-      return await new Promise<boolean>(resolve => {
+      ok = await new Promise<boolean>(resolve => {
         // 10-second timeout so iOS popup-blocked scenario never hangs
-        const timer = setTimeout(() => {
-          isConnectingRef.current = false;
-          setIsConnecting(false);
-          resolve(false);
-        }, 10_000);
+        const timer = setTimeout(() => resolve(false), 10_000);
         const config: Record<string, unknown> = {
           client_id: id,
           scope: 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/drive.appdata',
-          callback: (resp: TokenResponse) => {
-            clearTimeout(timer);
-            const ok = _saveToken(resp);
-            isConnectingRef.current = false;
-            setIsConnecting(false);
-            resolve(ok);
-          },
-          error_callback: () => {
-            clearTimeout(timer);
-            isConnectingRef.current = false;
-            setIsConnecting(false);
-            resolve(false);
-          },
+          callback: (resp: TokenResponse) => { clearTimeout(timer); resolve(_saveToken(resp)); },
+          error_callback: () => { clearTimeout(timer); resolve(false); },
         };
         const client = (window as unknown as GWindow).google.accounts.oauth2.initTokenClient(config);
         // prompt:'none' — no popup/redirect, silent token refresh only
         client.requestAccessToken({ prompt: 'none' });
       });
     } catch {
+      ok = false;
+    } finally {
       isConnectingRef.current = false;
       setIsConnecting(false);
-      return false;
     }
+    // If the silent refresh genuinely failed and we have no valid token, the user
+    // must re-grant access (prompt:'none' can't recover, e.g. expired Google session
+    // or blocked third-party cookies on github.io). Surface that so the UI can prompt
+    // a one-tap reconnect — but we still never flip "connected" off on our own.
+    if (ok) {
+      setNeedsReauth(false);
+    } else if (localStorage.getItem(LS_EVER_CONNECTED) === '1' && !readStoredToken()) {
+      setNeedsReauth(true);
+    }
+    return ok;
   }
 
   // Keep the ref always pointing to the latest autoConnect closure
@@ -382,6 +384,7 @@ export function useGoogleCalendar(): GoogleCalendarHook {
     localStorage.removeItem(LS_TOKEN_EXPIRY);
     localStorage.removeItem(LS_EVER_CONNECTED);
     setConnected(false);
+    setNeedsReauth(false);
     setLastError(null);
   }
 
@@ -541,5 +544,5 @@ export function useGoogleCalendar(): GoogleCalendarHook {
     [], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
-  return { connected, isConnecting, syncing, lastError, clientId, setClientId, connect, autoConnect, disconnect, getToken, createEvent, createHabitEvent, deleteEvent };
+  return { connected, needsReauth, isConnecting, syncing, lastError, clientId, setClientId, connect, autoConnect, disconnect, getToken, createEvent, createHabitEvent, deleteEvent };
 }
