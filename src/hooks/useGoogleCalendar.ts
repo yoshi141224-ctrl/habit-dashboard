@@ -5,6 +5,9 @@ const LS_CLIENT_ID       = 'hd_gcal_client_id';
 const LS_ACCESS_TOKEN    = 'hd_gcal_access_token';
 const LS_TOKEN_EXPIRY    = 'hd_gcal_token_expiry';
 const LS_EVER_CONNECTED  = 'hd_gcal_ever_connected'; // set once on first successful auth, never cleared
+// sessionStorage guard so an auto redirect re-auth can't loop within one tab session.
+// Cleared on every successful token, so the next expiry cycle can auto-reconnect again.
+const SS_AUTO_REDIRECT   = 'hd_gcal_auto_redirect';
 
 // Pre-configured Client ID — works on every browser without manual setup
 const DEFAULT_CLIENT_ID = '1094361881102-d929psrhmiel3o1fk0acks9d3mosfalo.apps.googleusercontent.com';
@@ -137,6 +140,8 @@ export function useGoogleCalendar(): GoogleCalendarHook {
   // Stable ref to autoConnect so useCallback API functions can call it without deps.
   // Updated every render so it always has the latest clientId / connected state.
   const autoConnectRef = useRef<() => Promise<boolean>>(async () => false);
+  // Ref to the reconnect-with-redirect-fallback helper (updated each render).
+  const reconnectRef = useRef<() => Promise<void>>(async () => {});
 
   useEffect(() => {
     const hash = window.location.hash;
@@ -184,6 +189,7 @@ export function useGoogleCalendar(): GoogleCalendarHook {
         localStorage.setItem(LS_ACCESS_TOKEN, token);
         localStorage.setItem(LS_TOKEN_EXPIRY, String(expiry));
         localStorage.setItem(LS_EVER_CONNECTED, '1');
+        try { sessionStorage.removeItem(SS_AUTO_REDIRECT); } catch { /**/ }
         tokenRef.current = token;
         setConnected(true);
         setNeedsReauth(false);
@@ -205,16 +211,12 @@ export function useGoogleCalendar(): GoogleCalendarHook {
     // 4. Pre-load GIS so autoConnect (silent refresh) is fast
     loadGIS().catch(() => {});
 
-    // 5. If user has previously connected but token is now expired, silently refresh.
-    //    Try after 1s (GIS script may still be loading), retry after 5s more on failure.
+    // 5. If user has previously connected but token is now expired, reconnect.
+    //    Try the silent refresh first; if it fails (Arc/Safari block cookies),
+    //    fall back to a seamless redirect re-auth. Wait 1.5s so GIS can load.
     const everConnected = localStorage.getItem(LS_EVER_CONNECTED) === '1';
     if (everConnected && !readStoredToken()) {
-      setTimeout(async () => {
-        const ok = await autoConnectRef.current().catch(() => false);
-        if (!ok) {
-          setTimeout(() => { autoConnectRef.current().catch(() => {}); }, 5000);
-        }
-      }, 1000);
+      setTimeout(() => { reconnectRef.current().catch(() => {}); }, 1500);
     }
   }, []); // mount only
 
@@ -263,15 +265,20 @@ export function useGoogleCalendar(): GoogleCalendarHook {
     return () => clearInterval(id);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Visibility change: when tab comes back to foreground, check if token expired
+  // Visibility change: when tab comes back to foreground, keep the token alive.
+  // This is the key moment for Arc users — returning to the tab after the 1-hour
+  // token died triggers a seamless redirect reconnect so sync just keeps working.
   useEffect(() => {
     function onVisible() {
       if (document.visibilityState !== 'visible') return;
       const everConnected = localStorage.getItem(LS_EVER_CONNECTED) === '1';
       if (!everConnected) return;
       const expiry = Number(localStorage.getItem(LS_TOKEN_EXPIRY) ?? 0);
-      // Refresh if expired or within 5 minutes of expiry
-      if (!expiry || Date.now() >= expiry - 5 * 60 * 1000) {
+      if (!expiry || Date.now() >= expiry) {
+        // Token already dead → reconnect (silent first, then redirect if blocked)
+        reconnectRef.current().catch(() => {});
+      } else if (Date.now() >= expiry - 5 * 60 * 1000) {
+        // Still valid but near expiry → silent refresh only (no redirect needed)
         autoConnectRef.current().catch(() => {});
       }
     }
@@ -292,6 +299,7 @@ export function useGoogleCalendar(): GoogleCalendarHook {
     localStorage.setItem(LS_ACCESS_TOKEN, resp.access_token);
     localStorage.setItem(LS_TOKEN_EXPIRY, String(expiry));
     localStorage.setItem(LS_EVER_CONNECTED, '1'); // mark as permanently ever-connected
+    try { sessionStorage.removeItem(SS_AUTO_REDIRECT); } catch { /**/ } // allow future auto-reconnect
     setConnected(true);
     setNeedsReauth(false); // fresh token obtained — no re-auth needed
     setLastError(null);
@@ -347,6 +355,31 @@ export function useGoogleCalendar(): GoogleCalendarHook {
 
   // Keep the ref always pointing to the latest autoConnect closure
   autoConnectRef.current = autoConnect;
+
+  /**
+   * Reconnect helper: try the silent refresh first; if it fails (e.g. a privacy
+   * browser like Arc/Safari blocks the third-party cookies that prompt:'none'
+   * needs), fall back to a top-level redirect re-auth. The redirect needs no
+   * cookies, and for a PUBLISHED app with an existing grant it bounces straight
+   * back with a fresh token — no consent screen. A sessionStorage guard prevents
+   * redirect loops; it's cleared on every successful token so the next expiry
+   * cycle can auto-reconnect again.
+   */
+  async function reconnectWithRedirectFallback(): Promise<void> {
+    if (localStorage.getItem(LS_EVER_CONNECTED) !== '1') return;
+    if (readStoredToken()) return; // token still valid — nothing to do
+    const ok = await autoConnect().catch(() => false);
+    if (ok || readStoredToken()) return;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return; // offline — don't redirect to a dead page
+    const id = clientId.trim();
+    if (!id) return;
+    try {
+      if (sessionStorage.getItem(SS_AUTO_REDIRECT)) return; // already tried this session
+      sessionStorage.setItem(SS_AUTO_REDIRECT, '1');
+    } catch { /**/ }
+    _redirectConnect(id);
+  }
+  reconnectRef.current = reconnectWithRedirectFallback;
 
   /** リダイレクト型 OAuth フロー（モバイルでポップアップがブロックされた場合） */
   function _redirectConnect(id: string) {
