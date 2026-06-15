@@ -20,6 +20,7 @@ interface Props {
   sessionItemMeta?: Record<string, { name: string; color: string }>;
   // Google Calendar
   gcalConnected: boolean;
+  gcalNeedsReauth?: boolean;
   gcalSyncing: boolean;
   gcalLastError: string | null;
   gcalMobileSetupUrl: string | null;
@@ -48,7 +49,7 @@ export default function FocusTimer({
   pendingNotes, activeItemName, activeItemColor,
   onStart, onPause, onReset, onNotesChange, formatTime,
   sessionItemMeta,
-  gcalConnected, gcalSyncing, gcalLastError, gcalMobileSetupUrl,
+  gcalConnected, gcalNeedsReauth, gcalSyncing, gcalLastError, gcalMobileSetupUrl,
   onGcalConnect, onGcalDisconnect, onGcalSwitchAccount,
   onDeleteSession,
 }: Props) {
@@ -323,14 +324,33 @@ export default function FocusTimer({
               </svg>
               Google Calendar
             </h3>
-            {gcalConnected && (
+            {gcalConnected && gcalNeedsReauth && (
+              <span className="ft-gcal-badge ft-gcal-badge--warn">⚠ 再接続が必要</span>
+            )}
+            {gcalConnected && !gcalNeedsReauth && (
               <span className="ft-gcal-badge ft-gcal-badge--on">
                 {gcalSyncing ? '同期中…' : '連携済み ✓'}
               </span>
             )}
           </div>
 
-          {gcalConnected && (
+          {/* 再接続が必要（7日間の認可期限切れ等で自動更新できなくなった） */}
+          {gcalConnected && gcalNeedsReauth && (
+            <div className="ft-gcal-reauth">
+              <p className="ft-gcal-reauth-msg">
+                Google の自動更新が切れました。下のボタンで再接続すると、未送信のセッションもまとめてカレンダーに反映されます。
+              </p>
+              <button
+                type="button"
+                className="ft-gcal-reauth-btn"
+                onClick={onGcalConnect}
+              >
+                🔄 Google を再接続する
+              </button>
+            </div>
+          )}
+
+          {gcalConnected && !gcalNeedsReauth && (
             <div className="ft-gcal-connected">
               <p className="ft-gcal-desc">
                 セッション終了時に自動でカレンダーに追加されます

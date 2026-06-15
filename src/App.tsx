@@ -563,6 +563,7 @@ export default function App() {
         onNotesChange={timer.setPendingNotes}
         formatTime={timer.formatTime}
         gcalConnected={gcal.connected}
+        gcalNeedsReauth={gcal.needsReauth}
         gcalSyncing={gcal.syncing}
         gcalLastError={gcal.lastError}
         sessionItemMeta={sessionItemMeta}

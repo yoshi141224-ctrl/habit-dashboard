@@ -295,6 +295,38 @@
 
 .ft-gcal-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px; flex-shrink: 0; }
 .ft-gcal-badge--on { background: #D8EDD8; color: #2A6A2A; }
+.ft-gcal-badge--warn { background: #FBE6CC; color: #99560A; }
+
+/* 再接続が必要なとき（認可期限切れ） */
+.ft-gcal-reauth {
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid #F0CFA0;
+  background: #FDF4E7;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ft-gcal-reauth-msg {
+  font-size: 11px;
+  line-height: 1.55;
+  color: #7A4A0E;
+}
+.ft-gcal-reauth-btn {
+  width: 100%;
+  padding: 9px 12px;
+  border: none;
+  border-radius: 7px;
+  background: #C77A18;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.ft-gcal-reauth-btn:hover { opacity: 0.88; }
 
 .ft-gcal-toggle {
   background: none;
