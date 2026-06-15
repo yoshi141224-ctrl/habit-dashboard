@@ -69,6 +69,47 @@ function mergeByIdRemoteWins<T extends { id: string }>(local: T[], remote: T[]):
   return [...map.values()];
 }
 
+/**
+ * Union-merge focus sessions by id. Never drops a session from either side, so a
+ * stale Drive snapshot can't wipe sessions recorded locally (e.g. while the token
+ * was briefly expired and pushes were failing). On conflict, keep the copy that
+ * already has a gcalEventId so a synced session isn't re-created on Calendar.
+ */
+function mergeSessions(
+  local: { id: string; gcalEventId?: string }[],
+  remote: { id: string; gcalEventId?: string }[],
+): { id: string; gcalEventId?: string }[] {
+  const map = new Map<string, { id: string; gcalEventId?: string }>();
+  for (const s of local) map.set(s.id, s);
+  for (const s of remote) {
+    const existing = map.get(s.id);
+    if (!existing) map.set(s.id, s);
+    else if (!existing.gcalEventId && s.gcalEventId) map.set(s.id, s); // prefer the synced copy
+  }
+  return [...map.values()];
+}
+
+/**
+ * Merge time logs ({ date: { itemId: seconds } }). Accumulated focus seconds only
+ * ever grow on a device, so taking the MAX per date+item never loses recorded
+ * time — a stale remote can't shrink today's total back down.
+ */
+function mergeTimeLogs(
+  local: Record<string, Record<string, number>>,
+  remote: Record<string, Record<string, number>>,
+): Record<string, Record<string, number>> {
+  const merged: Record<string, Record<string, number>> = { ...local };
+  for (const [date, items] of Object.entries(remote)) {
+    const localItems = merged[date] ?? {};
+    const mergedItems = { ...localItems };
+    for (const [itemId, secs] of Object.entries(items)) {
+      mergedItems[itemId] = Math.max(localItems[itemId] ?? 0, secs as number);
+    }
+    merged[date] = mergedItems;
+  }
+  return merged;
+}
+
 export function useDriveSync({ getToken, onPullComplete, onTokenExpired }: Opts) {
   const fileIdRef          = useRef<string | null>(localStorage.getItem(LS_FILE_ID));
   const pushTimerRef       = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -235,6 +276,27 @@ export function useDriveSync({ getToken, onPullComplete, onTokenExpired }: Opts)
             localStorage.setItem(key, mergedStr);
             changed = true;
           }
+          continue;
+        }
+
+        // Focus sessions: ALWAYS union-merge by id (never gated on remoteIsNewer).
+        // This is the safety net against data loss — a stale Drive snapshot can no
+        // longer overwrite sessions recorded locally while pushes were failing.
+        if (key === 'hd_sessions') {
+          const localArr = localRaw ? JSON.parse(localRaw) : [];
+          const merged = mergeSessions(localArr, value as { id: string; gcalEventId?: string }[]);
+          const mergedStr = JSON.stringify(merged);
+          if (mergedStr !== localRaw) { localStorage.setItem(key, mergedStr); changed = true; }
+          continue;
+        }
+
+        // Time logs: ALWAYS max-merge per date+item so accumulated focus time is
+        // never shrunk back down by an older remote snapshot.
+        if (key === 'hd_timelogs') {
+          const localVal = localRaw ? JSON.parse(localRaw) : {};
+          const merged = mergeTimeLogs(localVal, value as Record<string, Record<string, number>>);
+          const mergedStr = JSON.stringify(merged);
+          if (mergedStr !== localRaw) { localStorage.setItem(key, mergedStr); changed = true; }
           continue;
         }
 
