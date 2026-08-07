@@ -3,7 +3,12 @@ import type { FocusSession } from '../types';
 import { LS_SESSIONS, LS_DELETED_SESSION_IDS } from '../types';
 
 interface TimerOptions {
-  onComplete?: (itemId: string | null, seconds: number) => void;
+  /**
+   * 記録が確定したセッションを渡す。集計へ足す日は必ずこの session.startTime から
+   * 決めること（停止時刻で決めると、日をまたいだセッションを訂正したときに
+   * 足した日と引く日がズレて集計が直らなくなる）。
+   */
+  onComplete?: (session: FocusSession) => void;
   onSessionSaved?: (session: FocusSession) => void;
 }
 
@@ -194,7 +199,7 @@ export function useTimer({ onComplete, onSessionSaved }: TimerOptions = {}) {
         updatedAt: Date.now(),
       };
       setSessions(prev => [...prev, session]);
-      onCompleteRef.current?.(currentItemId, finalSeconds);
+      onCompleteRef.current?.(session);
       onSessionSavedRef.current?.(session);
     }
 

@@ -11,9 +11,12 @@ interface Props {
   sessions: FocusSession[];
   /** 表示中の日付の合計時間（秒） */
   totalSeconds: number;
+  /** 集計側（グラフ・習慣ダイアリー）が持っている同じ日の合計（秒） */
+  loggedSeconds: number;
   /** 表示中の日付 YYYY-MM-DD */
   viewDate: string;
   onViewDateChange: (date: string) => void;
+  onRecalcDate?: (date: string) => void;
   onEditSession?: (id: string) => void;
   onAddSession?: () => void;
   pendingNotes: string;
@@ -77,8 +80,8 @@ function fmtDateLabel(dateStr: string): string {
 }
 
 export default function FocusTimer({
-  status, elapsed, sessions, totalSeconds,
-  viewDate, onViewDateChange, onEditSession, onAddSession,
+  status, elapsed, sessions, totalSeconds, loggedSeconds,
+  viewDate, onViewDateChange, onRecalcDate, onEditSession, onAddSession,
   pendingNotes, activeItemName, activeItemColor,
   onStart, onPause, onReset, onNotesChange, formatTime,
   sessionItemMeta,
@@ -107,6 +110,20 @@ export default function FocusTimer({
   const lastSession = sessions[sessions.length - 1] ?? null;
   const today = dateKey(new Date());
   const isToday = viewDate === today;
+
+  // グラフ・習慣ダイアリーが見ている集計と、セッション記録の合計のズレ。
+  // 昔の記録（タイマー停止日に加算されていた分など）が残っていると食い違う。
+  const logGap = loggedSeconds - totalSeconds;
+  const hasLogGap = Math.abs(logGap) >= 60;
+
+  function handleRecalc() {
+    if (!onRecalcDate) return;
+    const ok = window.confirm(
+      `${fmtDateLabel(viewDate)}の集計を、セッション記録の合計（${fmtDuration(totalSeconds)}）で作り直すで。\n`
+      + `グラフと習慣ダイアリーの数字がこれに揃うけど、セッションが残ってない記録は消えるで。ええか？`,
+    );
+    if (ok) onRecalcDate(viewDate);
+  }
 
   function handleTouchStart(e: React.TouchEvent) {
     touchStartY.current = e.touches[0].clientY;
@@ -366,6 +383,18 @@ export default function FocusTimer({
             <span className="ft-total-label">{fmtDateLabel(viewDate)}の合計</span>
             <span className="ft-total-value">{fmtDuration(totalSeconds)}</span>
           </div>
+
+          {hasLogGap && onRecalcDate && (
+            <div className="ft-gap">
+              <p className="ft-gap-msg">
+                グラフ・習慣ダイアリーの集計は <strong>{fmtDuration(loggedSeconds)}</strong> になっとる。
+                セッション記録（{fmtDuration(totalSeconds)}）とズレとるで。
+              </p>
+              <button type="button" className="ft-gap-btn" onClick={handleRecalc}>
+                セッション記録から作り直す
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="ft-section ft-details">

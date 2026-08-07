@@ -103,9 +103,31 @@ export function useTimeLogs() {
     });
   }
 
+  /**
+   * その日の集計を、渡された合計でまるごと作り直す（セッション記録からの再計算用）。
+   * 過去の不整合（タイマー停止日に加算されていた分など）を一発で正すための逃げ道。
+   * 触った項目すべてに訂正時刻を刻むので、同期で古い値に戻されることはない。
+   */
+  function setTimeForDate(date: string, totals: Record<string, number>) {
+    const before = timeLogs[date] ?? {};
+    new Set([...Object.keys(before), ...Object.keys(totals)])
+      .forEach(itemId => markEdited(date, itemId));
+
+    setTimeLogs(prev => {
+      const cleaned: Record<string, number> = {};
+      for (const [itemId, seconds] of Object.entries(totals)) {
+        if (seconds > 0) cleaned[itemId] = seconds;
+      }
+      const next = { ...prev };
+      if (Object.keys(cleaned).length > 0) next[date] = cleaned;
+      else delete next[date];
+      return next;
+    });
+  }
+
   function getTimeForDate(date: string): Record<string, number> {
     return timeLogs[date] ?? {};
   }
 
-  return { timeLogs, addTime, adjustTime, getTimeForDate };
+  return { timeLogs, addTime, adjustTime, setTimeForDate, getTimeForDate };
 }

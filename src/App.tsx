@@ -198,12 +198,16 @@ export default function App() {
   }, [habits.habits, tasks.tasks, tasks.completedTasks]);
 
   // onComplete: saves time to timeLogs
-  const handleTimerComplete = useCallback((itemId: string | null, seconds: number) => {
-    if (itemId && seconds > 0) {
-      timeLogs.addTime(localDateStr(), itemId, seconds);
+  // 足す日は「タイマーを止めた日」ではなく「セッションを始めた日」。
+  // 訂正・削除も同じ基準で引くので、日をまたいだセッションでも集計がズレない。
+  const handleTimerComplete = useCallback((session: FocusSession) => {
+    if (session.itemId && session.durationSeconds > 0) {
+      timeLogs.addTime(
+        localDateStr(new Date(session.startTime)), session.itemId, session.durationSeconds,
+      );
     }
-    // 過去の日を見ていても、記録した瞬間は今日の一覧に戻す
-    setSessionViewDate(localDateStr());
+    // 過去の日を見ていても、記録した瞬間はその日の一覧に戻す
+    setSessionViewDate(localDateStr(new Date(session.startTime)));
   }, [timeLogs]);
 
   // habitGcalEvents: date:habitId → gcalEventId のマップ（localStorage保存）
@@ -324,6 +328,30 @@ export default function App() {
   }, [timer.sessions, sessionViewDate]);
 
   const viewTotalSeconds = viewSessions.reduce((acc, s) => acc + s.durationSeconds, 0);
+  // 集計側（グラフ・ダイアリーが見ている値）の同じ日の合計。
+  // セッションの合計とズレていたら、過去の記録が壊れているサイン。
+  const viewLoggedSeconds = Object.values(timeLogs.getTimeForDate(sessionViewDate))
+    .reduce((acc, s) => acc + s, 0);
+
+  // 習慣ダイアリーが表示している日のデータ（今日固定だと、日付を戻しても
+  // 今日の時間が出てしまう）
+  const diaryLogs = timeLogs.getTimeForDate(habits.selectedDate);
+  const diarySessions = useMemo(() => {
+    return timer.sessions
+      .filter(s => s?.startTime && localDateStr(new Date(s.startTime)) === habits.selectedDate)
+      .sort((a, b) => a.startTime.localeCompare(b.startTime));
+  }, [timer.sessions, habits.selectedDate]);
+
+  /** その日の集計を、セッション記録の合計で作り直す */
+  function handleRecalcDate(date: string) {
+    const totals: Record<string, number> = {};
+    timer.sessions.forEach(s => {
+      if (!s?.startTime || !s.itemId) return;
+      if (localDateStr(new Date(s.startTime)) !== date) return;
+      totals[s.itemId] = (totals[s.itemId] ?? 0) + s.durationSeconds;
+    });
+    timeLogs.setTimeForDate(date, totals);
+  }
 
   // 訂正モーダルの項目候補（習慣・サブ習慣・タスク）
   const sessionItemOptions = useMemo<SessionItemOption[]>(() => {
@@ -607,8 +635,8 @@ export default function App() {
               completions={habits.completions}
               subCompletions={habits.subCompletions}
               selectedDate={habits.selectedDate}
-              timeLogs={todayLogs}
-              sessions={timer.todaySessions}
+              timeLogs={diaryLogs}
+              sessions={diarySessions}
               activeItemId={timer.status === 'idle' ? selectedItemId : timer.currentItemId}
               timerRunning={timer.status === 'running'}
               colorMap={itemColorMap}
@@ -649,8 +677,10 @@ export default function App() {
         elapsed={timer.elapsed}
         sessions={viewSessions}
         totalSeconds={viewTotalSeconds}
+        loggedSeconds={viewLoggedSeconds}
         viewDate={sessionViewDate}
         onViewDateChange={setSessionViewDate}
+        onRecalcDate={handleRecalcDate}
         onEditSession={handleEditSession}
         onAddSession={() => setSessionEditor({ mode: 'add', session: null })}
         pendingNotes={timer.pendingNotes}
