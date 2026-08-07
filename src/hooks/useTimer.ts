@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { FocusSession } from '../types';
-import { LS_SESSIONS } from '../types';
+import { LS_SESSIONS, LS_DELETED_SESSION_IDS } from '../types';
 
 interface TimerOptions {
   onComplete?: (itemId: string | null, seconds: number) => void;
@@ -16,10 +16,27 @@ interface PersistedTimer {
   sessionStartTime: string; // ISO
 }
 
+// 削除したセッションの墓標。これが無いと、同期のユニオン合体で
+// 「消したはずのセッション」が他端末から復活してしまう（タスクと同じ仕組み）
+function loadDeletedSessionIds(): Set<string> {
+  try {
+    const v = localStorage.getItem(LS_DELETED_SESSION_IDS);
+    return new Set(v ? (JSON.parse(v) as string[]) : []);
+  } catch { return new Set(); }
+}
+
+function addSessionTombstone(id: string) {
+  const ids = loadDeletedSessionIds();
+  ids.add(id);
+  localStorage.setItem(LS_DELETED_SESSION_IDS, JSON.stringify([...ids]));
+}
+
 function loadSessions(fallback: FocusSession[]): FocusSession[] {
   try {
     const v = localStorage.getItem(LS_SESSIONS);
-    return v ? JSON.parse(v) : fallback;
+    const all: FocusSession[] = v ? JSON.parse(v) : fallback;
+    const deleted = loadDeletedSessionIds();
+    return all.filter(s => !deleted.has(s.id));
   } catch {
     return fallback;
   }
@@ -174,6 +191,7 @@ export function useTimer({ onComplete, onSessionSaved }: TimerOptions = {}) {
         durationSeconds: finalSeconds,
         itemId: currentItemId,
         notes: pendingNotes,
+        updatedAt: Date.now(),
       };
       setSessions(prev => [...prev, session]);
       onCompleteRef.current?.(currentItemId, finalSeconds);
@@ -217,6 +235,8 @@ export function useTimer({ onComplete, onSessionSaved }: TimerOptions = {}) {
   }
 
   function deleteSession(sessionId: string): void {
+    // 墓標を先に立ててから消す（同期で復活させないため）
+    addSessionTombstone(sessionId);
     setSessions(prev => {
       const next = prev.filter(s => s.id !== sessionId);
       localStorage.setItem(LS_SESSIONS, JSON.stringify(next));
@@ -227,7 +247,9 @@ export function useTimer({ onComplete, onSessionSaved }: TimerOptions = {}) {
   /** 記録済みセッションの内容（実時間・開始/終了・項目・メモ）を訂正する */
   function updateSession(sessionId: string, patch: Partial<Omit<FocusSession, 'id'>>): void {
     setSessions(prev => {
-      const next = prev.map(s => s.id === sessionId ? { ...s, ...patch } : s);
+      const next = prev.map(s =>
+        s.id === sessionId ? { ...s, ...patch, updatedAt: Date.now() } : s,
+      );
       localStorage.setItem(LS_SESSIONS, JSON.stringify(next));
       return next;
     });
@@ -241,7 +263,9 @@ export function useTimer({ onComplete, onSessionSaved }: TimerOptions = {}) {
     itemId: string | null;
     notes: string;
   }): FocusSession {
-    const session: FocusSession = { id: crypto.randomUUID(), ...data, manual: true };
+    const session: FocusSession = {
+      id: crypto.randomUUID(), ...data, manual: true, updatedAt: Date.now(),
+    };
     setSessions(prev => {
       const next = [...prev, session];
       localStorage.setItem(LS_SESSIONS, JSON.stringify(next));

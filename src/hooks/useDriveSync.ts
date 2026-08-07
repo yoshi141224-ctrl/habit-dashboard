@@ -12,6 +12,8 @@ const SYNC_KEYS = [
   'hd_tasks', 'hd_completed_tasks', 'hd_timelogs',
   'hd_sessions', 'hd_habit_gcal_events',
   'hd_deleted_task_ids', // tombstone set — union-merged so deletions propagate cross-device
+  'hd_deleted_session_ids', // 同上（セッション削除が同期で復活しないように）
+  'hd_timelog_edits', // 実時間を訂正した時刻。MAX合体で訂正が巻き戻るのを防ぐ
   // hd_gcal_client_id is intentionally excluded: each device uses the build-time default
 ];
 
@@ -28,6 +30,13 @@ interface Opts {
 }
 
 // ── Merge helpers ─────────────────────────────────────────────
+
+function readLocalJson<T>(key: string, fallback: T): T {
+  try {
+    const v = localStorage.getItem(key);
+    return v ? (JSON.parse(v) as T) : fallback;
+  } catch { return fallback; }
+}
 
 function mergeCompletions(
   local: Record<string, string[]>,
@@ -75,37 +84,86 @@ function mergeByIdRemoteWins<T extends { id: string }>(local: T[], remote: T[]):
  * was briefly expired and pushes were failing). On conflict, keep the copy that
  * already has a gcalEventId so a synced session isn't re-created on Calendar.
  */
-function mergeSessions(
-  local: { id: string; gcalEventId?: string }[],
-  remote: { id: string; gcalEventId?: string }[],
-): { id: string; gcalEventId?: string }[] {
-  const map = new Map<string, { id: string; gcalEventId?: string }>();
+type SyncSession = { id: string; gcalEventId?: string; updatedAt?: number };
+
+export function mergeSessions(
+  local: SyncSession[],
+  remote: SyncSession[],
+  deletedIds: Set<string>,
+): SyncSession[] {
+  const map = new Map<string, SyncSession>();
   for (const s of local) map.set(s.id, s);
   for (const s of remote) {
     const existing = map.get(s.id);
-    if (!existing) map.set(s.id, s);
+    if (!existing) { map.set(s.id, s); continue; }
+    // 実時間を訂正したセッションは updatedAt が新しい方が正しい。
+    // これが無いと、他端末の古いコピーが訂正を上書きしてしまう。
+    const lu = existing.updatedAt ?? 0;
+    const ru = s.updatedAt ?? 0;
+    if (ru > lu) map.set(s.id, s);
+    else if (lu > ru) continue;
     else if (!existing.gcalEventId && s.gcalEventId) map.set(s.id, s); // prefer the synced copy
   }
-  return [...map.values()];
+  // 墓標のあるセッションは復活させない
+  return [...map.values()].filter(s => !deletedIds.has(s.id));
 }
 
+type EditStamps = Record<string, Record<string, number>>;
+
 /**
- * Merge time logs ({ date: { itemId: seconds } }). Accumulated focus seconds only
- * ever grow on a device, so taking the MAX per date+item never loses recorded
- * time — a stale remote can't shrink today's total back down.
+ * Merge time logs ({ date: { itemId: seconds } }).
+ *
+ * 基本はMAX合体：タイマーで積み上がる時間は増える一方なので、古いリモートが
+ * 今日の合計を縮めることはない。
+ *
+ * ただし実時間の訂正機能で、ユーザーが意図的に時間を減らす（あるいは項目・日付を
+ * 移す、セッションを消す）ことがある。それを MAX で潰さないよう、訂正した時刻
+ * （editStamps）が新しい側の値をそのまま採用する。
  */
-function mergeTimeLogs(
+export function mergeTimeLogs(
   local: Record<string, Record<string, number>>,
   remote: Record<string, Record<string, number>>,
+  localEdits: EditStamps,
+  remoteEdits: EditStamps,
 ): Record<string, Record<string, number>> {
-  const merged: Record<string, Record<string, number>> = { ...local };
-  for (const [date, items] of Object.entries(remote)) {
-    const localItems = merged[date] ?? {};
-    const mergedItems = { ...localItems };
-    for (const [itemId, secs] of Object.entries(items)) {
-      mergedItems[itemId] = Math.max(localItems[itemId] ?? 0, secs as number);
+  const merged: Record<string, Record<string, number>> = {};
+  const dates = new Set([...Object.keys(local), ...Object.keys(remote)]);
+
+  for (const date of dates) {
+    const l = local[date] ?? {};
+    const r = remote[date] ?? {};
+    const le = localEdits[date] ?? {};
+    const re = remoteEdits[date] ?? {};
+    const items = new Set([...Object.keys(l), ...Object.keys(r)]);
+    const out: Record<string, number> = {};
+
+    for (const itemId of items) {
+      const lt = le[itemId] ?? 0;
+      const rt = re[itemId] ?? 0;
+      let value: number | undefined;
+      if (lt > rt)      value = l[itemId];                        // こっちの訂正が新しい
+      else if (rt > lt) value = r[itemId];                        // 他端末の訂正が新しい
+      else              value = Math.max(l[itemId] ?? 0, r[itemId] ?? 0); // 従来どおり積み上げ
+      if (value !== undefined && value > 0) out[itemId] = value;
     }
-    merged[date] = mergedItems;
+
+    if (Object.keys(out).length > 0) merged[date] = out;
+  }
+  return merged;
+}
+
+/** 訂正時刻は date+item ごとに新しい方を残す */
+export function mergeEditStamps(local: EditStamps, remote: EditStamps): EditStamps {
+  const merged: EditStamps = {};
+  const dates = new Set([...Object.keys(local), ...Object.keys(remote)]);
+  for (const date of dates) {
+    const l = local[date] ?? {};
+    const r = remote[date] ?? {};
+    const out: Record<string, number> = { ...l };
+    for (const [itemId, ts] of Object.entries(r)) {
+      out[itemId] = Math.max(out[itemId] ?? 0, ts);
+    }
+    merged[date] = out;
   }
   return merged;
 }
@@ -250,6 +308,15 @@ export function useDriveSync({ getToken, onPullComplete, onTokenExpired }: Opts)
       const lastPushTime = Number(localStorage.getItem(LS_LAST_PUSH_TIME) ?? 0);
       const remoteIsNewer = remote.lastModified > lastPushTime;
 
+      // 訂正時刻と削除墓標は、timelogs/sessions を合体する前の値が要る。
+      // ループの順番に依存しないよう、先にまとめて読んでおく。
+      const localEdits  = readLocalJson<EditStamps>('hd_timelog_edits', {});
+      const remoteEdits = (remote.data['hd_timelog_edits'] as EditStamps) ?? {};
+      const deletedSessionIds = new Set<string>([
+        ...readLocalJson<string[]>('hd_deleted_session_ids', []),
+        ...((remote.data['hd_deleted_session_ids'] as string[]) ?? []),
+      ]);
+
       let changed = false;
       for (const [key, value] of Object.entries(remote.data)) {
         if (value === undefined || value === null) continue;
@@ -284,17 +351,34 @@ export function useDriveSync({ getToken, onPullComplete, onTokenExpired }: Opts)
         // longer overwrite sessions recorded locally while pushes were failing.
         if (key === 'hd_sessions') {
           const localArr = localRaw ? JSON.parse(localRaw) : [];
-          const merged = mergeSessions(localArr, value as { id: string; gcalEventId?: string }[]);
+          const merged = mergeSessions(localArr, value as SyncSession[], deletedSessionIds);
           const mergedStr = JSON.stringify(merged);
           if (mergedStr !== localRaw) { localStorage.setItem(key, mergedStr); changed = true; }
           continue;
         }
 
-        // Time logs: ALWAYS max-merge per date+item so accumulated focus time is
-        // never shrunk back down by an older remote snapshot.
+        // 削除したセッションの墓標：ユニオン合体（他端末の削除も忘れない）
+        if (key === 'hd_deleted_session_ids') {
+          const mergedStr = JSON.stringify([...deletedSessionIds]);
+          if (mergedStr !== localRaw) { localStorage.setItem(key, mergedStr); changed = true; }
+          continue;
+        }
+
+        // 実時間を訂正した時刻：date+item ごとに新しい方を残す
+        if (key === 'hd_timelog_edits') {
+          const mergedStr = JSON.stringify(mergeEditStamps(localEdits, remoteEdits));
+          if (mergedStr !== localRaw) { localStorage.setItem(key, mergedStr); changed = true; }
+          continue;
+        }
+
+        // Time logs: 基本はMAX合体。ただし訂正時刻が新しい側の値を優先する
+        // （時間を減らす訂正が古いスナップショットに巻き戻されるのを防ぐ）。
         if (key === 'hd_timelogs') {
           const localVal = localRaw ? JSON.parse(localRaw) : {};
-          const merged = mergeTimeLogs(localVal, value as Record<string, Record<string, number>>);
+          const merged = mergeTimeLogs(
+            localVal, value as Record<string, Record<string, number>>,
+            localEdits, remoteEdits,
+          );
           const mergedStr = JSON.stringify(merged);
           if (mergedStr !== localRaw) { localStorage.setItem(key, mergedStr); changed = true; }
           continue;

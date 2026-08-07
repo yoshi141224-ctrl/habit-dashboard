@@ -31,10 +31,19 @@ export interface FocusSession {
   manual?: boolean;
   /** 記録後に実時間を訂正したセッション */
   edited?: boolean;
+  /** 最後に作成・訂正した時刻(epoch ms)。同期で新しい方を勝たせるために使う */
+  updatedAt?: number;
 }
 
 // date → itemId → seconds
 export type TimeLog = Record<string, Record<string, number>>;
+
+/**
+ * date → itemId → 訂正した時刻(epoch ms)。
+ * 集計時間は本来「増える一方」なので同期はMAX合体で足りるが、実時間の訂正で
+ * 減ることがある。どちらの端末の値が新しいかを判定するための印。
+ */
+export type TimeLogEdits = Record<string, Record<string, number>>;
 
 export interface Task {
   id: string;
@@ -104,3 +113,5 @@ export const LS_TIMELOGS = 'hd_timelogs';
 export const LS_TASKS = 'hd_tasks';
 export const LS_COMPLETED_TASKS = 'hd_completed_tasks';
 export const LS_DELETED_TASK_IDS = 'hd_deleted_task_ids';
+export const LS_TIMELOG_EDITS = 'hd_timelog_edits';
+export const LS_DELETED_SESSION_IDS = 'hd_deleted_session_ids';

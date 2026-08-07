@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import type { TimeLog } from '../types';
-import { LS_TIMELOGS } from '../types';
+import type { TimeLog, TimeLogEdits } from '../types';
+import { LS_TIMELOGS, LS_TIMELOG_EDITS } from '../types';
 
 function generateSeedTimeLogs(): TimeLog {
   const today = new Date();
@@ -27,6 +27,18 @@ function generateSeedTimeLogs(): TimeLog {
   });
 
   return log;
+}
+
+/**
+ * 「この日のこの項目は、いつ手で直したか」を localStorage に刻む。
+ * 描画には使わないので React state には載せない。
+ */
+function markEdited(date: string, itemId: string) {
+  try {
+    const edits = load<TimeLogEdits>(LS_TIMELOG_EDITS, {});
+    edits[date] = { ...(edits[date] ?? {}), [itemId]: Date.now() };
+    localStorage.setItem(LS_TIMELOG_EDITS, JSON.stringify(edits));
+  } catch { /* localStorage が使えない環境では諦める */ }
 }
 
 function load<T>(key: string, fallback: T): T {
@@ -57,16 +69,25 @@ export function useTimeLogs() {
 
   function addTime(date: string, itemId: string, seconds: number) {
     if (seconds <= 0) return;
-    adjustTime(date, itemId, seconds);
+    applyDelta(date, itemId, seconds);
   }
 
   /**
    * 記録済みの時間を増減する（マイナス可）。
    * セッションの実時間を訂正・削除したときに、集計側の合計もズレないよう補正するために使う。
-   * 0 以下になったキーは消して、チャートに空のセグメントが残らないようにする。
+   *
+   * タイマーによる積み上げ（addTime）と違って「ユーザーが明示的に直した値」なので、
+   * 訂正時刻を記録しておく。Drive同期はこの時刻を見て新しい方を採用する。
+   * これが無いと、時間を減らす訂正が MAX 合体で古い大きい値に戻されてしまう。
    */
   function adjustTime(date: string, itemId: string, deltaSeconds: number) {
     if (!deltaSeconds) return;
+    markEdited(date, itemId);
+    applyDelta(date, itemId, deltaSeconds);
+  }
+
+  /** 0 以下になったキーは消して、チャートに空のセグメントが残らないようにする */
+  function applyDelta(date: string, itemId: string, deltaSeconds: number) {
     setTimeLogs(prev => {
       const dateLog = { ...(prev[date] ?? {}) };
       const next = Math.max(0, (dateLog[itemId] ?? 0) + deltaSeconds);
