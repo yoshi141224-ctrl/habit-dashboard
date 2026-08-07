@@ -57,12 +57,28 @@ export function useTimeLogs() {
 
   function addTime(date: string, itemId: string, seconds: number) {
     if (seconds <= 0) return;
+    adjustTime(date, itemId, seconds);
+  }
+
+  /**
+   * 記録済みの時間を増減する（マイナス可）。
+   * セッションの実時間を訂正・削除したときに、集計側の合計もズレないよう補正するために使う。
+   * 0 以下になったキーは消して、チャートに空のセグメントが残らないようにする。
+   */
+  function adjustTime(date: string, itemId: string, deltaSeconds: number) {
+    if (!deltaSeconds) return;
     setTimeLogs(prev => {
-      const dateLog = prev[date] ?? {};
-      return {
-        ...prev,
-        [date]: { ...dateLog, [itemId]: (dateLog[itemId] ?? 0) + seconds },
-      };
+      const dateLog = { ...(prev[date] ?? {}) };
+      const next = Math.max(0, (dateLog[itemId] ?? 0) + deltaSeconds);
+      if (next === 0) delete dateLog[itemId];
+      else dateLog[itemId] = next;
+
+      if (Object.keys(dateLog).length === 0) {
+        const withoutDate = { ...prev };
+        delete withoutDate[date];
+        return withoutDate;
+      }
+      return { ...prev, [date]: dateLog };
     });
   }
 
@@ -70,5 +86,5 @@ export function useTimeLogs() {
     return timeLogs[date] ?? {};
   }
 
-  return { timeLogs, addTime, getTimeForDate };
+  return { timeLogs, addTime, adjustTime, getTimeForDate };
 }

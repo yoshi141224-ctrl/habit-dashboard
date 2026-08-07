@@ -224,6 +224,32 @@ export function useTimer({ onComplete, onSessionSaved }: TimerOptions = {}) {
     });
   }
 
+  /** 記録済みセッションの内容（実時間・開始/終了・項目・メモ）を訂正する */
+  function updateSession(sessionId: string, patch: Partial<Omit<FocusSession, 'id'>>): void {
+    setSessions(prev => {
+      const next = prev.map(s => s.id === sessionId ? { ...s, ...patch } : s);
+      localStorage.setItem(LS_SESSIONS, JSON.stringify(next));
+      return next;
+    });
+  }
+
+  /** タイマーを回し忘れた分などを、あとから手動で記録する */
+  function addManualSession(data: {
+    startTime: string;
+    endTime: string;
+    durationSeconds: number;
+    itemId: string | null;
+    notes: string;
+  }): FocusSession {
+    const session: FocusSession = { id: crypto.randomUUID(), ...data, manual: true };
+    setSessions(prev => {
+      const next = [...prev, session];
+      localStorage.setItem(LS_SESSIONS, JSON.stringify(next));
+      return next;
+    });
+    return session;
+  }
+
   return {
     status,
     elapsed,
@@ -239,5 +265,7 @@ export function useTimer({ onComplete, onSessionSaved }: TimerOptions = {}) {
     formatTime,
     updateSessionGcalId,
     deleteSession,
+    updateSession,
+    addManualSession,
   };
 }

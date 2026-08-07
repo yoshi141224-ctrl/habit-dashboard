@@ -166,6 +166,21 @@
 /* Row 2: time range */
 .ft-session-row2 {
   padding-left: 21px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ft-session-flag {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--tx-3, #978780);
+  background: var(--surface-2, #F2EDE5);
+  border: 1px solid var(--bd-2, #DCD5CC);
+  border-radius: 4px;
+  padding: 1px 5px;
+  flex-shrink: 0;
 }
 
 .ft-session-num {
@@ -228,6 +243,84 @@
 .ft-session-del:hover { color: #C0392B; }
 @media (max-width: 1023px) {
   .ft-session-del { opacity: 0.5; }
+}
+
+.ft-session-edit {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--tx-4, #B4A89E);
+  padding: 2px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+.ft-session-item:hover .ft-session-edit { opacity: 1; }
+.ft-session-edit:hover { color: var(--accent, #2B52D6); }
+@media (max-width: 1023px) {
+  .ft-session-edit { opacity: 0.5; }
+}
+
+/* ── セッション記録ヘッダー（日付切り替え） ── */
+.ft-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ft-date-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.ft-date-arrow {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--tx-3, #978780);
+  padding: 3px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s, background 0.15s;
+}
+.ft-date-arrow:hover:not(:disabled) {
+  color: var(--tx-1, #17120B);
+  background: var(--surface-2, #F2EDE5);
+}
+.ft-date-arrow:disabled { opacity: 0.25; cursor: default; }
+
+.ft-date-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--tx-2, #574940);
+  min-width: 34px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.ft-add-session {
+  width: 100%;
+  padding: 8px 0;
+  border: 1px dashed var(--bd-2, #DCD5CC);
+  border-radius: var(--r-sm, 8px);
+  background: none;
+  color: var(--tx-3, #978780);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+.ft-add-session:hover {
+  color: var(--tx-1, #17120B);
+  background: var(--surface-2, #F2EDE5);
+  border-color: var(--bd-1, #C9C0B4);
 }
 
 .ft-total {

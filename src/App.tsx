@@ -16,6 +16,8 @@ import FocusTimer from './components/FocusTimer';
 import CompletedTasksLog from './components/CompletedTasksLog';
 import TaskCalendar from './components/TaskCalendar';
 import HabitStatsView from './components/HabitStatsView';
+import SessionEditModal from './components/SessionEditModal';
+import type { SessionItemOption } from './components/SessionEditModal';
 import type { StackedBarDatum, FocusSession } from './types';
 import { ITEM_COLORS } from './types';
 
@@ -173,6 +175,9 @@ export default function App() {
   // Selected item for the timer (habit or task)
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
 
+  // セッション記録一覧で表示している日付（実時間の訂正はここから行う）
+  const [sessionViewDate, setSessionViewDate] = useState(localDateStr());
+
   // Assign colors: habits → indices 0..n-1, active tasks → n..n+m-1, completed tasks → same slot by ID
   const itemColorMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -197,6 +202,8 @@ export default function App() {
     if (itemId && seconds > 0) {
       timeLogs.addTime(localDateStr(), itemId, seconds);
     }
+    // 過去の日を見ていても、記録した瞬間は今日の一覧に戻す
+    setSessionViewDate(localDateStr());
   }, [timeLogs]);
 
   // habitGcalEvents: date:habitId → gcalEventId のマップ（localStorage保存）
@@ -302,13 +309,101 @@ export default function App() {
     }
   }
 
-  // フォーカスセッション削除 → GCal イベントも削除
+  // ── セッションの実時間の訂正 ──
+  // 記録は「セッション一覧（hd_sessions）」と「日別の集計（hd_timelogs）」の二本立てなので、
+  // セッションを直したら集計側も同じ分だけ増減させないとグラフの合計がズレる。
+  const [sessionEditor, setSessionEditor] = useState<
+    { mode: 'add' | 'edit'; session: FocusSession | null } | null
+  >(null);
+
+  // 表示中の日付のセッション（開始時刻の昇順）
+  const viewSessions = useMemo(() => {
+    return timer.sessions
+      .filter(s => s?.startTime && localDateStr(new Date(s.startTime)) === sessionViewDate)
+      .sort((a, b) => a.startTime.localeCompare(b.startTime));
+  }, [timer.sessions, sessionViewDate]);
+
+  const viewTotalSeconds = viewSessions.reduce((acc, s) => acc + s.durationSeconds, 0);
+
+  // 訂正モーダルの項目候補（習慣・サブ習慣・タスク）
+  const sessionItemOptions = useMemo<SessionItemOption[]>(() => {
+    const opts: SessionItemOption[] = [];
+    habits.habits.forEach(h => {
+      opts.push({ id: h.id, name: h.name, color: itemColorMap[h.id] ?? '#ccc', group: '習慣' });
+      h.subHabits?.forEach(sh => opts.push({
+        id: sh.id,
+        name: `${h.name} › ${sh.emoji ? sh.emoji + ' ' : ''}${sh.name}`,
+        color: itemColorMap[sh.id] ?? '#ccc',
+        group: '習慣',
+      }));
+    });
+    tasks.tasks.forEach(t => opts.push({
+      id: t.id, name: t.title, color: itemColorMap[t.id] ?? '#ccc', group: 'タスク',
+    }));
+    tasks.completedTasks.forEach(t => opts.push({
+      id: t.id, name: t.title, color: itemColorMap[t.id] ?? '#ccc', group: '完了したタスク',
+    }));
+    return opts;
+  }, [habits.habits, tasks.tasks, tasks.completedTasks, itemColorMap]);
+
+  function handleEditSession(sessionId: string) {
+    const session = timer.sessions.find(s => s.id === sessionId);
+    if (session) setSessionEditor({ mode: 'edit', session });
+  }
+
+  function handleSaveSession(data: {
+    itemId: string | null;
+    startTime: string;
+    endTime: string;
+    durationSeconds: number;
+    notes: string;
+  }) {
+    const editing = sessionEditor?.mode === 'edit' ? sessionEditor.session : null;
+
+    // 1. 集計時間の付け替え（元の項目・日付から引いて、新しい方に足す）
+    if (editing?.itemId) {
+      timeLogs.adjustTime(
+        localDateStr(new Date(editing.startTime)), editing.itemId, -editing.durationSeconds,
+      );
+    }
+    if (data.itemId) {
+      timeLogs.adjustTime(localDateStr(new Date(data.startTime)), data.itemId, data.durationSeconds);
+    }
+
+    // 2. セッション本体を更新／追加
+    let saved: FocusSession;
+    if (editing) {
+      // 訂正後は元の GCal イベントを捨てて作り直す（時間・項目が変わるため）
+      if (editing.gcalEventId) gcal.deleteEvent(editing.gcalEventId);
+      gcalSessionSync.current.delete(editing.id);
+      saved = { ...editing, ...data, edited: true, gcalEventId: undefined };
+      timer.updateSession(editing.id, { ...data, edited: true, gcalEventId: undefined });
+    } else {
+      saved = timer.addManualSession(data);
+    }
+
+    // 3. Google カレンダーへ反映
+    handleSessionSaved(saved);
+
+    setSessionViewDate(localDateStr(new Date(data.startTime)));
+    setSessionEditor(null);
+  }
+
+  // フォーカスセッション削除 → 集計時間も戻し、GCal イベントも削除
   function handleDeleteSession(sessionId: string) {
     const session = timer.sessions.find(s => s.id === sessionId);
-    if (session?.gcalEventId && gcal.connected) {
-      gcal.deleteEvent(session.gcalEventId);
+    if (session) {
+      if (session.itemId) {
+        timeLogs.adjustTime(
+          localDateStr(new Date(session.startTime)), session.itemId, -session.durationSeconds,
+        );
+      }
+      if (session.gcalEventId && gcal.connected) {
+        gcal.deleteEvent(session.gcalEventId);
+      }
     }
     timer.deleteSession(sessionId);
+    setSessionEditor(null);
   }
 
   // Today's time logs — use local timezone so midnight doesn't flip to yesterday (UTC)
@@ -393,7 +488,7 @@ export default function App() {
   const sessionItemMeta = useMemo(() => {
     const allTasks = [...tasks.tasks, ...tasks.completedTasks];
     const meta: Record<string, { name: string; color: string }> = {};
-    timer.todaySessions.forEach(s => {
+    viewSessions.forEach(s => {
       if (s.itemId && !meta[s.itemId]) {
         meta[s.itemId] = {
           name: resolveItemName(s.itemId, habits.habits, allTasks),
@@ -402,7 +497,7 @@ export default function App() {
       }
     });
     return meta;
-  }, [timer.todaySessions, habits.habits, tasks.tasks, tasks.completedTasks, itemColorMap]);
+  }, [viewSessions, habits.habits, tasks.tasks, tasks.completedTasks, itemColorMap]);
 
   // Update flush function every render so it captures fresh state
   flushPendingRef.current = () => {
@@ -552,8 +647,12 @@ export default function App() {
       <FocusTimer
         status={timer.status}
         elapsed={timer.elapsed}
-        todaySessions={timer.todaySessions}
-        totalFocusSeconds={timer.totalFocusSeconds}
+        sessions={viewSessions}
+        totalSeconds={viewTotalSeconds}
+        viewDate={sessionViewDate}
+        onViewDateChange={setSessionViewDate}
+        onEditSession={handleEditSession}
+        onAddSession={() => setSessionEditor({ mode: 'add', session: null })}
         pendingNotes={timer.pendingNotes}
         activeItemName={activeItemName}
         activeItemColor={activeItemColor}
@@ -575,6 +674,21 @@ export default function App() {
         onGcalSwitchAccount={handleGcalSwitchAccount}
         onDeleteSession={handleDeleteSession}
       />
+
+      {sessionEditor && (
+        <SessionEditModal
+          mode={sessionEditor.mode}
+          session={sessionEditor.session}
+          items={sessionItemOptions}
+          defaultDate={sessionViewDate}
+          defaultItemId={selectedItemId}
+          onSave={handleSaveSession}
+          onDelete={sessionEditor.session
+            ? () => handleDeleteSession(sessionEditor.session!.id)
+            : undefined}
+          onClose={() => setSessionEditor(null)}
+        />
+      )}
     </div>
     </>
   );

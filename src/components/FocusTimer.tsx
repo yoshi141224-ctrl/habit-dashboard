@@ -7,8 +7,15 @@ const MAX_SECONDS = 25 * 60;
 interface Props {
   status: 'idle' | 'running' | 'paused';
   elapsed: number;
-  todaySessions: FocusSession[];
-  totalFocusSeconds: number;
+  /** 表示中の日付のセッション（開始時刻の昇順） */
+  sessions: FocusSession[];
+  /** 表示中の日付の合計時間（秒） */
+  totalSeconds: number;
+  /** 表示中の日付 YYYY-MM-DD */
+  viewDate: string;
+  onViewDateChange: (date: string) => void;
+  onEditSession?: (id: string) => void;
+  onAddSession?: () => void;
   pendingNotes: string;
   activeItemName: string | null;
   activeItemColor: string | null;
@@ -44,8 +51,34 @@ function fmtDuration(seconds: number): string {
   return `${Math.floor(m / 60)}h ${m % 60 > 0 ? `${m % 60}m` : ''}`.trim();
 }
 
+function pad2(n: number): string {
+  return String(n).padStart(2, '0');
+}
+
+/** YYYY-MM-DD（ローカル） */
+function dateKey(d: Date): string {
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+/** 表示中の日付を n 日ずらした YYYY-MM-DD を返す */
+function shiftDate(dateStr: string, days: number): string {
+  const [y, mo, d] = dateStr.split('-').map(Number);
+  const next = new Date(y, mo - 1, d);
+  next.setDate(next.getDate() + days);
+  return dateKey(next);
+}
+
+function fmtDateLabel(dateStr: string): string {
+  const today = dateKey(new Date());
+  if (dateStr === today) return '今日';
+  if (dateStr === shiftDate(today, -1)) return '昨日';
+  const [, mo, d] = dateStr.split('-').map(Number);
+  return `${mo}/${d}`;
+}
+
 export default function FocusTimer({
-  status, elapsed, todaySessions, totalFocusSeconds,
+  status, elapsed, sessions, totalSeconds,
+  viewDate, onViewDateChange, onEditSession, onAddSession,
   pendingNotes, activeItemName, activeItemColor,
   onStart, onPause, onReset, onNotesChange, formatTime,
   sessionItemMeta,
@@ -71,7 +104,9 @@ export default function FocusTimer({
   const ratio = Math.min(elapsed / MAX_SECONDS, 1);
   const dashoffset = circumference * (1 - ratio);
   const arcColor = activeItemColor ?? '#2d2926';
-  const lastSession = todaySessions[todaySessions.length - 1] ?? null;
+  const lastSession = sessions[sessions.length - 1] ?? null;
+  const today = dateKey(new Date());
+  const isToday = viewDate === today;
 
   function handleTouchStart(e: React.TouchEvent) {
     touchStartY.current = e.touches[0].clientY;
@@ -228,12 +263,38 @@ export default function FocusTimer({
         )}
 
         <div className="ft-section">
-          <h3 className="ft-section-title">今日のセッション</h3>
-          {todaySessions.length === 0 ? (
+          <div className="ft-section-head">
+            <h3 className="ft-section-title">セッション記録</h3>
+            <div className="ft-date-nav">
+              <button
+                type="button"
+                className="ft-date-arrow"
+                onClick={() => onViewDateChange(shiftDate(viewDate, -1))}
+                aria-label="前の日"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="15 18 9 12 15 6"/>
+                </svg>
+              </button>
+              <span className="ft-date-label">{fmtDateLabel(viewDate)}</span>
+              <button
+                type="button"
+                className="ft-date-arrow"
+                onClick={() => onViewDateChange(shiftDate(viewDate, 1))}
+                disabled={isToday}
+                aria-label="次の日"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="9 18 15 12 9 6"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+          {sessions.length === 0 ? (
             <p className="ft-empty">セッションなし</p>
           ) : (
             <ul className="ft-sessions-list">
-              {todaySessions.map((s, i) => {
+              {sessions.map((s, i) => {
                 const meta = s.itemId ? sessionItemMeta?.[s.itemId] : undefined;
                 return (
                   <li key={s.id} className="ft-session-item">
@@ -255,6 +316,19 @@ export default function FocusTimer({
                       {gcalConnected && (
                         <span className="ft-session-gcal" title="Synced to Google Calendar">📅</span>
                       )}
+                      {onEditSession && (
+                        <button
+                          type="button"
+                          className="ft-session-edit"
+                          onClick={() => onEditSession(s.id)}
+                          title="実時間を訂正"
+                        >
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 20h9"/>
+                            <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/>
+                          </svg>
+                        </button>
+                      )}
                       {onDeleteSession && (
                         <button
                           type="button"
@@ -275,15 +349,22 @@ export default function FocusTimer({
                       <span className="ft-session-time">
                         {fmtShort(s.startTime)} – {fmtShort(s.endTime)}
                       </span>
+                      {s.manual && <span className="ft-session-flag">手動</span>}
+                      {s.edited && <span className="ft-session-flag">訂正済み</span>}
                     </div>
                   </li>
                 );
               })}
             </ul>
           )}
+          {onAddSession && (
+            <button type="button" className="ft-add-session" onClick={onAddSession}>
+              ＋ 時間を手動で記録
+            </button>
+          )}
           <div className="ft-total">
-            <span className="ft-total-label">今日の合計</span>
-            <span className="ft-total-value">{fmtDuration(totalFocusSeconds)}</span>
+            <span className="ft-total-label">{fmtDateLabel(viewDate)}の合計</span>
+            <span className="ft-total-value">{fmtDuration(totalSeconds)}</span>
           </div>
         </div>
 

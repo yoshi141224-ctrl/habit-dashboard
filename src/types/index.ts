@@ -27,6 +27,10 @@ export interface FocusSession {
   itemId: string | null;
   notes: string;
   gcalEventId?: string;
+  /** タイマーを使わず手動で記録したセッション */
+  manual?: boolean;
+  /** 記録後に実時間を訂正したセッション */
+  edited?: boolean;
 }
 
 // date → itemId → seconds
