@@ -16,6 +16,7 @@ import FocusTimer from './components/FocusTimer';
 import CompletedTasksLog from './components/CompletedTasksLog';
 import TaskCalendar from './components/TaskCalendar';
 import HabitStatsView from './components/HabitStatsView';
+import CategoryTimeChart from './components/CategoryTimeChart';
 import SessionEditModal from './components/SessionEditModal';
 import type { SessionItemOption } from './components/SessionEditModal';
 import type { StackedBarDatum, FocusSession } from './types';
@@ -557,6 +558,16 @@ export default function App() {
       .forEach(s => handleSessionSaved(s));
   };
 
+  const categoryTimeChart = (
+    <CategoryTimeChart
+      habits={habits.habits}
+      tasks={tasks.tasks}
+      completedTasks={tasks.completedTasks}
+      timeLogs={timeLogs.timeLogs}
+      colorMap={itemColorMap}
+    />
+  );
+
   return (
     <>
       {/* Google Calendar connection banner — shown on first visit, when disconnected,
@@ -607,28 +618,34 @@ export default function App() {
         )}
 
         {activeNav === 'stats' && (
-          <HabitStatsView
-            habits={habits.habits}
-            completions={habits.completions}
-            timeLogs={timeLogs.timeLogs}
-            colorMap={itemColorMap}
-          />
+          <>
+            <HabitStatsView
+              habits={habits.habits}
+              completions={habits.completions}
+              timeLogs={timeLogs.timeLogs}
+              colorMap={itemColorMap}
+            />
+            {categoryTimeChart}
+          </>
         )}
 
         {activeNav !== 'calendar' && activeNav !== 'completed' && activeNav !== 'stats' && (
           <>
-            <div className="charts-row">
-              <StackedBarChart
-                weekData={stackedData}
-                monthData={monthStackedData}
-                legendItems={legendItems}
-              />
-              <HabitProgressChart
-                habits={habits.habits}
-                completions={habits.completions}
-                colorMap={itemColorMap}
-              />
-            </div>
+            {/* 「習慣」ページは日付×カテゴリ別の時間グラフを先頭に出す */}
+            {activeNav === 'habits' ? categoryTimeChart : (
+              <div className="charts-row">
+                <StackedBarChart
+                  weekData={stackedData}
+                  monthData={monthStackedData}
+                  legendItems={legendItems}
+                />
+                <HabitProgressChart
+                  habits={habits.habits}
+                  completions={habits.completions}
+                  colorMap={itemColorMap}
+                />
+              </div>
+            )}
 
             <HabitDiary
               habits={habits.habits}

@@ -23,10 +23,6 @@ function localDateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
-function utcDateKey(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-
 function rateForDay(completions: CompletionMap, habits: Habit[], key: string): number {
   if (habits.length === 0) return 0;
   return Math.round(((completions[key] ?? []).length / habits.length) * 100);
@@ -167,17 +163,17 @@ export default function HabitStatsView({ habits, completions, timeLogs = {}, col
   // ── 時間 data ────────────────────────────────────────────────
   const timeData: BarDatum[] = useMemo(() => {
     const today = new Date();
-    if (period === '1日') return [{ label: 'Today', value: minutesForDay(timeLogs, utcDateKey(today)) }];
+    if (period === '1日') return [{ label: 'Today', value: minutesForDay(timeLogs, localDateKey(today)) }];
     if (period === '1週') {
       return Array.from({ length: 7 }, (_, i) => {
         const d = new Date(today); d.setDate(today.getDate() - (6 - i));
-        return { label: DAY_ABBR[d.getDay()], value: minutesForDay(timeLogs, utcDateKey(d)) };
+        return { label: DAY_ABBR[d.getDay()], value: minutesForDay(timeLogs, localDateKey(d)) };
       });
     }
     if (period === '1ヶ月') {
       return Array.from({ length: 30 }, (_, i) => {
         const d = new Date(today); d.setDate(today.getDate() - (29 - i));
-        return { label: `${d.getMonth()+1}/${d.getDate()}`, value: minutesForDay(timeLogs, utcDateKey(d)) };
+        return { label: `${d.getMonth()+1}/${d.getDate()}`, value: minutesForDay(timeLogs, localDateKey(d)) };
       });
     }
     if (period === '3ヶ月') {
@@ -186,7 +182,7 @@ export default function HabitStatsView({ habits, completions, timeLogs = {}, col
         let total = 0, weekLabel = '';
         for (let j = 6; j >= 0; j--) {
           const d = new Date(today); d.setDate(today.getDate() - weekEndDaysAgo - j);
-          total += minutesForDay(timeLogs, utcDateKey(d));
+          total += minutesForDay(timeLogs, localDateKey(d));
           if (j === 6) weekLabel = `${d.getMonth()+1}/${d.getDate()}`;
         }
         return { label: weekLabel, value: total };
@@ -201,7 +197,7 @@ export default function HabitStatsView({ habits, completions, timeLogs = {}, col
         for (let day = 1; day <= daysInMonth; day++) {
           const d = new Date(year, month, day);
           if (d > today) break;
-          total += minutesForDay(timeLogs, utcDateKey(d));
+          total += minutesForDay(timeLogs, localDateKey(d));
         }
         return { label: MONTH_ABBR[month], value: total, subLabel: String(year) };
       });
@@ -214,7 +210,7 @@ export default function HabitStatsView({ habits, completions, timeLogs = {}, col
       for (let day = 1; day <= daysInMonth; day++) {
         const d = new Date(year, month, day);
         if (d > today) break;
-        total += minutesForDay(timeLogs, utcDateKey(d));
+        total += minutesForDay(timeLogs, localDateKey(d));
       }
       return { label: MONTH_ABBR[month], value: total, subLabel: String(year) };
     });

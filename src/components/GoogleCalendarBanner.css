@@ -242,6 +242,16 @@
 }
 
 /* ── Responsive ── */
+/* スマホでは画面に固定せずページの先頭に置く。固定のままだとメニューボタンと
+   カードの見出しを覆ってしまい、連携前はメニューが開けなくなる。 */
+@media (max-width: 767px) {
+  .gcb-root {
+    position: relative;
+    z-index: 100;
+  }
+  .gcb-inner { padding-left: 56px; }
+}
+
 @media (max-width: 600px) {
   .gcb-root { padding: 10px 12px; }
   .gcb-actions { gap: 6px; }

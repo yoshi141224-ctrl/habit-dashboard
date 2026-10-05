@@ -1,0 +1,224 @@
+.ctc-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.ctc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.ctc-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--tx-1, #17120B);
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+
+.ctc-tabs {
+  display: flex;
+  gap: 2px;
+  background: var(--surface-2, #F2EDE5);
+  padding: 3px;
+  border-radius: var(--r-sm, 8px);
+  border: 1px solid var(--bd-3, #EAE4DC);
+  flex-shrink: 0;
+}
+
+.ctc-tab {
+  font-size: 10.5px;
+  padding: 4px 10px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: 6px;
+  color: var(--tx-3, #978780);
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.ctc-tab--active {
+  background: var(--primary, #1C1410);
+  color: var(--surface, #FDFBF8);
+}
+
+/* ── Period navigation ── */
+.ctc-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.ctc-nav-btn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--bd-2, #DCD5CC);
+  background: none;
+  border-radius: var(--r-sm, 8px);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--tx-2, #574940);
+  font-family: inherit;
+}
+
+.ctc-nav-btn:hover:not(:disabled) { background: var(--surface-2, #F2EDE5); }
+.ctc-nav-btn:disabled { opacity: 0.35; cursor: default; }
+
+.ctc-nav-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--tx-2, #574940);
+  font-variant-numeric: tabular-nums;
+  min-width: 96px;
+  text-align: center;
+}
+
+.ctc-chart-wrap {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.ctc-day { cursor: pointer; }
+
+/* ── Breakdown sections ── */
+.ctc-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--bd-3, #EAE4DC);
+}
+
+.ctc-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.ctc-section-title {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--tx-2, #574940);
+}
+
+.ctc-section-total {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--tx-1, #17120B);
+  font-variant-numeric: tabular-nums;
+}
+
+.ctc-empty {
+  font-size: 11.5px;
+  color: var(--tx-4, #B4A89E);
+}
+
+.ctc-row {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) minmax(0, 1.4fr) 56px;
+  align-items: center;
+  gap: 8px;
+}
+
+.ctc-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.ctc-row-name {
+  font-size: 12px;
+  color: var(--tx-1, #17120B);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ctc-track {
+  height: 6px;
+  background: var(--surface-2, #F2EDE5);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.ctc-fill {
+  height: 100%;
+  border-radius: 3px;
+}
+
+.ctc-row-time {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--tx-2, #574940);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ctc-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+
+.ctc-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.ctc-legend-name {
+  font-size: 11px;
+  color: var(--tx-3, #978780);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ctc-legend-time {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--tx-2, #574940);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ctc-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 8px;
+  border-top: 1px solid var(--bd-3, #EAE4DC);
+}
+
+.ctc-avg-label {
+  font-size: 10.5px;
+  color: var(--tx-3, #978780);
+  letter-spacing: 0.06em;
+  font-weight: 500;
+}
+
+.ctc-avg-value {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--tx-1, #17120B);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 767px) {
+  .ctc-card { overflow-x: hidden; }
+  .ctc-row { grid-template-columns: 8px minmax(0, 1.2fr) minmax(0, 1fr) 52px; }
+}
