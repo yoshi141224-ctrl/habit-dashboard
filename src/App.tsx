@@ -354,6 +354,38 @@ export default function App() {
     timeLogs.setTimeForDate(date, totals);
   }
 
+  /**
+   * 「項目別の時間」からの直接訂正。集計を書き換えたうえで、その日のその項目の
+   * セッション記録も合計が合うように1件へまとめ直す（放っておくと集計とセッションが
+   * 食い違い、「セッション記録から作り直す」で元の値に戻ってしまう）。
+   */
+  function handleSetItemTime(date: string, itemId: string, seconds: number) {
+    timeLogs.setItemTime(date, itemId, seconds);
+
+    const same = timer.sessions
+      .filter(s => s?.startTime && s.itemId === itemId && localDateStr(new Date(s.startTime)) === date)
+      .sort((a, b) => a.startTime.localeCompare(b.startTime));
+    if (same.reduce((acc, s) => acc + s.durationSeconds, 0) === seconds) return;
+
+    same.forEach(s => {
+      if (s.gcalEventId && gcal.connected) gcal.deleteEvent(s.gcalEventId);
+      gcalSessionSync.current.delete(s.id);
+      timer.deleteSession(s.id);
+    });
+    if (seconds > 0) {
+      const [y, m, d] = date.split('-').map(Number);
+      const start = same[0] ? new Date(same[0].startTime) : new Date(y, m - 1, d, 12);
+      const saved = timer.addManualSession({
+        itemId,
+        startTime: start.toISOString(),
+        endTime: new Date(start.getTime() + seconds * 1000).toISOString(),
+        durationSeconds: seconds,
+        notes: same.map(s => s.notes).filter(Boolean).join(' / '),
+      });
+      handleSessionSaved(saved);
+    }
+  }
+
   // 訂正モーダルの項目候補（習慣・サブ習慣・タスク）
   const sessionItemOptions = useMemo<SessionItemOption[]>(() => {
     const opts: SessionItemOption[] = [];
@@ -565,6 +597,7 @@ export default function App() {
       completedTasks={tasks.completedTasks}
       timeLogs={timeLogs.timeLogs}
       colorMap={itemColorMap}
+      onSetItemTime={handleSetItemTime}
     />
   );
 

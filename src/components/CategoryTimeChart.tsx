@@ -2,7 +2,15 @@ import { useMemo, useState } from 'react';
 import './CategoryTimeChart.css';
 import type { Habit, Task, CompletedTask, TimeLog } from '../types';
 
-type Range = 7 | 14 | 30;
+type Period = '1日' | '1週' | '1ヶ月' | '3ヶ月' | '半年' | '1年';
+
+const PERIODS: Period[] = ['1日', '1週', '1ヶ月', '3ヶ月', '半年', '1年'];
+const PERIOD_DAYS: Record<Period, number> = {
+  '1日': 1, '1週': 7, '1ヶ月': 30, '3ヶ月': 90, '半年': 180, '1年': 365,
+};
+const DAY_JP = ['日', '月', '火', '水', '木', '金', '土'];
+const DAY_SECONDS = 24 * 3600;
+const FALLBACK_COLOR = '#ccc8c4';
 
 interface Props {
   habits: Habit[];
@@ -10,34 +18,30 @@ interface Props {
   completedTasks: CompletedTask[];
   timeLogs: TimeLog;
   colorMap: Record<string, string>;
+  /** その日のその項目の合計時間を直接書き換える（0 で記録を消す） */
+  onSetItemTime: (date: string, itemId: string, seconds: number) => void;
 }
 
-interface Category { id: string; name: string; color: string; }
-interface Segment extends Category { seconds: number; }
-interface DayDatum { key: string; date: Date; segments: Segment[]; totalSeconds: number; }
-
-const DAY_JP = ['日', '月', '火', '水', '木', '金', '土'];
-const OTHER: Category = { id: '__other', name: 'その他', color: '#ccc8c4' };
+interface Row { itemId: string; name: string; color: string; seconds: number; }
 
 function localDateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-/** Round up to a "nice" ceiling in seconds for Y-axis scaling */
-function niceMaxSeconds(maxSec: number): number {
-  if (maxSec <= 0) return 3600;
-  const steps = [15, 30, 60, 90, 120, 180, 240, 360, 480, 600, 720].map(m => m * 60);
-  for (const s of steps) {
-    if (s >= maxSec) return s;
-  }
-  return Math.ceil(maxSec / 3600) * 3600;
+function parseKey(key: string): Date {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d);
 }
 
-function fmtAxisTime(sec: number): string {
-  if (sec === 0) return '0';
-  const m = Math.round(sec / 60);
-  if (m < 60) return `${m}m`;
-  return m % 60 === 0 ? `${m / 60}h` : `${Math.floor(m / 60)}h${m % 60}m`;
+function shiftKey(key: string, days: number): string {
+  const d = parseKey(key);
+  d.setDate(d.getDate() + days);
+  return localDateKey(d);
+}
+
+function fmtDay(key: string, withYear = false): string {
+  const d = parseKey(key);
+  return `${withYear ? d.getFullYear() + '/' : ''}${d.getMonth() + 1}/${d.getDate()}（${DAY_JP[d.getDay()]}）`;
 }
 
 function fmtDuration(sec: number): string {
@@ -50,221 +54,235 @@ function fmtDuration(sec: number): string {
 }
 
 /**
- * 日付 × カテゴリ別の経過時間。
- * カテゴリ = 習慣（サブ習慣は親の習慣にまとめる）またはタスク。
+ * 項目別の合計時間（縦 = 項目、横 = 時間）。
+ * ログが残っている項目はまとめずにそのまま全部出す。
+ * 「1日」表示では各項目の時間を直接訂正できる。
  */
-export default function CategoryTimeChart({ habits, tasks, completedTasks, timeLogs, colorMap }: Props) {
-  const [range, setRange] = useState<Range>(7);
-  // 何ページ前を見ているか（0 = 今日で終わる期間）
-  const [page, setPage] = useState(0);
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+export default function CategoryTimeChart({ habits, tasks, completedTasks, timeLogs, colorMap, onSetItemTime }: Props) {
+  const todayKey = localDateKey(new Date());
+  const [period, setPeriod] = useState<Period>('1週');
+  // 表示期間の最終日
+  const [endKey, setEndKey] = useState(todayKey);
+  // 期間表示で、日別の内訳を開いている項目
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  // 1日表示で訂正中の項目
+  const [editing, setEditing] = useState<{ itemId: string; hours: string; minutes: string } | null>(null);
 
-  // itemId → カテゴリ
-  const categoryOf = useMemo(() => {
-    const map = new Map<string, Category>();
+  const nameOf = useMemo(() => {
+    const map = new Map<string, string>();
     habits.forEach(h => {
-      const cat: Category = {
-        id: h.id,
-        name: `${h.emoji ? h.emoji + ' ' : ''}${h.name}`,
-        color: colorMap[h.id] ?? OTHER.color,
-      };
-      map.set(h.id, cat);
-      h.subHabits?.forEach(sh => map.set(sh.id, cat));
+      map.set(h.id, `${h.emoji ? h.emoji + ' ' : ''}${h.name}`);
+      h.subHabits?.forEach(sh => map.set(sh.id, `${h.name} › ${sh.emoji ? sh.emoji + ' ' : ''}${sh.name}`));
     });
-    [...tasks, ...completedTasks].forEach(t => {
-      if (!map.has(t.id)) map.set(t.id, { id: t.id, name: t.title, color: colorMap[t.id] ?? OTHER.color });
-    });
+    [...tasks, ...completedTasks].forEach(t => { if (!map.has(t.id)) map.set(t.id, t.title); });
     return map;
-  }, [habits, tasks, completedTasks, colorMap]);
+  }, [habits, tasks, completedTasks]);
 
-  const { days, totals } = useMemo(() => {
-    const today = new Date();
-    const perDay = Array.from({ length: range }, (_, i) => {
-      const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - page * range - (range - 1 - i));
-      const key = localDateKey(date);
-      const byCat = new Map<string, Segment>();
-      Object.entries(timeLogs[key] ?? {}).forEach(([itemId, seconds]) => {
-        if (!(seconds > 0)) return;
-        const cat = categoryOf.get(itemId) ?? OTHER;
-        const prev = byCat.get(cat.id);
-        byCat.set(cat.id, { ...cat, seconds: (prev?.seconds ?? 0) + seconds });
+  const days = PERIOD_DAYS[period];
+  const startKey = shiftKey(endKey, -(days - 1));
+
+  const rows: Row[] = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (let i = 0; i < days; i++) {
+      Object.entries(timeLogs[shiftKey(startKey, i)] ?? {}).forEach(([itemId, seconds]) => {
+        if (seconds > 0) totals.set(itemId, (totals.get(itemId) ?? 0) + seconds);
       });
-      return { key, date, byCat };
-    });
+    }
+    return [...totals.entries()]
+      .map(([itemId, seconds]) => ({
+        itemId,
+        name: nameOf.get(itemId) ?? '削除済みの項目',
+        color: colorMap[itemId] ?? FALLBACK_COLOR,
+        seconds,
+      }))
+      .sort((a, b) => b.seconds - a.seconds);
+  }, [timeLogs, startKey, days, nameOf, colorMap]);
 
-    // 期間合計（多い順）。積み上げの順番もこれに揃えて、日ごとに色の位置がブレないようにする
-    const totalMap = new Map<string, Segment>();
-    perDay.forEach(d => d.byCat.forEach(seg => {
-      const prev = totalMap.get(seg.id);
-      totalMap.set(seg.id, { ...seg, seconds: (prev?.seconds ?? 0) + seg.seconds });
-    }));
-    const totals = [...totalMap.values()].sort((a, b) => b.seconds - a.seconds);
-    const order = new Map(totals.map((t, i) => [t.id, i]));
+  // 1日の合計が24時間を超えている日（タイマーの止め忘れなど、明らかにおかしい記録）
+  const overDays = useMemo(() => {
+    return Object.entries(timeLogs)
+      .map(([key, log]) => ({ key, seconds: Object.values(log).reduce((s, v) => s + v, 0) }))
+      .filter(d => d.seconds > DAY_SECONDS)
+      .sort((a, b) => b.key.localeCompare(a.key));
+  }, [timeLogs]);
 
-    const days: DayDatum[] = perDay.map(d => {
-      const segments = [...d.byCat.values()].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
-      return { key: d.key, date: d.date, segments, totalSeconds: segments.reduce((s, seg) => s + seg.seconds, 0) };
-    });
-    return { days, totals };
-  }, [range, page, timeLogs, categoryOf]);
+  // 開いている項目の日別内訳（長い順 = おかしい記録が上に来る）
+  const expandedDays = useMemo(() => {
+    if (!expandedId || period === '1日') return [];
+    const list: { key: string; seconds: number }[] = [];
+    for (let i = 0; i < days; i++) {
+      const key = shiftKey(startKey, i);
+      const seconds = timeLogs[key]?.[expandedId] ?? 0;
+      if (seconds > 0) list.push({ key, seconds });
+    }
+    return list.sort((a, b) => b.seconds - a.seconds);
+  }, [expandedId, period, days, startKey, timeLogs]);
 
-  const selected = days.find(d => d.key === selectedKey) ?? days[days.length - 1];
-  const periodTotal = totals.reduce((s, t) => s + t.seconds, 0);
-  const first = days[0].date, last = days[days.length - 1].date;
-  const rangeLabel = `${first.getMonth() + 1}/${first.getDate()} – ${last.getMonth() + 1}/${last.getDate()}`;
+  const total = rows.reduce((s, r) => s + r.seconds, 0);
+  const maxSeconds = Math.max(...rows.map(r => r.seconds), 1);
+  const isDay = period === '1日';
+  const rangeLabel = isDay ? fmtDay(endKey, true) : `${fmtDay(startKey)} – ${fmtDay(endKey)}`;
 
-  // SVG layout
-  const svgW = 320, svgH = 160;
-  const leftPad = 34, rightPad = 4, topPad = 16, bottomPad = range === 7 ? 28 : 20;
-  const chartW = svgW - leftPad - rightPad;
-  const chartH = svgH - topPad - bottomPad;
-  const n = days.length;
-  const slotW = chartW / n;
-  const barW = n <= 7 ? slotW * 0.55 : slotW * 0.72;
-  const labelStep = n > 15 ? 5 : n > 7 ? 2 : 1;
-  const niceMax = niceMaxSeconds(Math.max(...days.map(d => d.totalSeconds), 0));
-  const yTicks = [0, 0.25, 0.5, 0.75, 1].map(r => Math.round(r * niceMax));
-
-  function changeRange(r: Range) {
-    setRange(r);
-    setPage(0);
-    setSelectedKey(null);
+  function changePeriod(p: Period) {
+    setPeriod(p);
+    setExpandedId(null);
+    setEditing(null);
   }
 
-  function changePage(delta: number) {
-    setPage(p => Math.max(0, p + delta));
-    setSelectedKey(null);
+  function changeEnd(key: string) {
+    if (!key) return;
+    setEndKey(key > todayKey ? todayKey : key);
+    setEditing(null);
+  }
+
+  /** その日の「1日」表示に飛ぶ（訂正はそこで行う） */
+  function openDay(key: string) {
+    setPeriod('1日');
+    setEndKey(key);
+    setExpandedId(null);
+    setEditing(null);
+  }
+
+  function startEdit(row: Row) {
+    const m = Math.round(row.seconds / 60);
+    setEditing({ itemId: row.itemId, hours: String(Math.floor(m / 60)), minutes: String(m % 60) });
+  }
+
+  const editSeconds = editing
+    ? (Math.max(0, Number(editing.hours) || 0) * 60 + Math.max(0, Number(editing.minutes) || 0)) * 60
+    : 0;
+  const editInvalid = editSeconds > DAY_SECONDS;
+
+  function saveEdit() {
+    if (!editing || editInvalid) return;
+    onSetItemTime(endKey, editing.itemId, editSeconds);
+    setEditing(null);
   }
 
   return (
     <div className="ctc-card card">
       <div className="ctc-header">
-        <span className="ctc-title">カテゴリ別の時間</span>
-        <div className="ctc-tabs">
-          {([7, 14, 30] as Range[]).map(r => (
-            <button
-              type="button"
-              key={r}
-              className={`ctc-tab${range === r ? ' ctc-tab--active' : ''}`}
-              onClick={() => changeRange(r)}
-            >
-              {r}日
-            </button>
-          ))}
-        </div>
+        <span className="ctc-title">項目別の時間</span>
+        <span className="ctc-total">{fmtDuration(total)}</span>
+      </div>
+
+      <div className="ctc-tabs">
+        {PERIODS.map(p => (
+          <button
+            type="button"
+            key={p}
+            className={`ctc-tab${period === p ? ' ctc-tab--active' : ''}`}
+            onClick={() => changePeriod(p)}
+          >
+            {p}
+          </button>
+        ))}
       </div>
 
       <div className="ctc-nav">
-        <button type="button" className="ctc-nav-btn" onClick={() => changePage(1)} aria-label="前の期間">‹</button>
+        <button type="button" className="ctc-nav-btn" onClick={() => changeEnd(shiftKey(endKey, -days))} aria-label="前の期間">‹</button>
         <span className="ctc-nav-label">{rangeLabel}</span>
-        <button type="button" className="ctc-nav-btn" onClick={() => changePage(-1)} disabled={page === 0} aria-label="次の期間">›</button>
-      </div>
-
-      <div className="ctc-chart-wrap">
-        <svg width="100%" viewBox={`0 0 ${svgW} ${svgH}`} preserveAspectRatio="xMidYMid meet" style={{ display: 'block' }}>
-          {yTicks.map(v => {
-            const y = topPad + chartH - (v / niceMax) * chartH;
-            return (
-              <g key={v}>
-                <line x1={leftPad} y1={y} x2={svgW - rightPad} y2={y} stroke="#f0ece6" strokeWidth="1" />
-                <text x={leftPad - 4} y={y + 3} textAnchor="end" fontSize="7.5" fill="#b0a89e">{fmtAxisTime(v)}</text>
-              </g>
-            );
-          })}
-
-          {days.map((d, i) => {
-            const slotX = leftPad + i * slotW;
-            const x = slotX + (slotW - barW) / 2;
-            const labelX = x + barW / 2;
-            const totalH = (d.totalSeconds / niceMax) * chartH;
-            const isSelected = d.key === selected.key;
-            let stackY = topPad + chartH;
-
-            return (
-              <g key={d.key} className="ctc-day" onClick={() => setSelectedKey(d.key)}>
-                {/* タップ領域 + 選択中の日のハイライト */}
-                <rect
-                  x={slotX} y={topPad - 10} width={slotW} height={svgH - topPad + 10}
-                  fill={isSelected ? '#f2ede5' : 'transparent'} rx="3"
-                />
-                {d.segments.map(seg => {
-                  const segH = Math.max(1, (seg.seconds / niceMax) * chartH);
-                  stackY -= segH;
-                  return (
-                    <rect key={seg.id} x={x} y={stackY} width={barW} height={segH} fill={seg.color} rx={segH > 3 ? '2' : '0'}>
-                      <title>{seg.name}: {fmtDuration(seg.seconds)}</title>
-                    </rect>
-                  );
-                })}
-                {d.totalSeconds > 0 && n <= 14 && (
-                  <text x={labelX} y={topPad + chartH - totalH - 3} textAnchor="middle" fontSize={n <= 7 ? 7 : 5.5} fill="#9a938c" fontWeight="500">
-                    {fmtDuration(d.totalSeconds)}
-                  </text>
-                )}
-                {(i % labelStep === 0 || i === n - 1) && (
-                  <>
-                    <text x={labelX} y={topPad + chartH + 11} textAnchor="middle" fontSize="7.5" fill={isSelected ? '#17120b' : '#9a938c'} fontWeight={isSelected ? 700 : 400}>
-                      {d.date.getMonth() + 1}/{d.date.getDate()}
-                    </text>
-                    {range === 7 && (
-                      <text x={labelX} y={topPad + chartH + 21} textAnchor="middle" fontSize="6.5" fill="#c5bfb8">
-                        {DAY_JP[d.date.getDay()]}
-                      </text>
-                    )}
-                  </>
-                )}
-              </g>
-            );
-          })}
-        </svg>
-      </div>
-
-      {/* 選択した日の内訳 */}
-      <div className="ctc-section">
-        <div className="ctc-section-head">
-          <span className="ctc-section-title">
-            {selected.date.getMonth() + 1}月{selected.date.getDate()}日（{DAY_JP[selected.date.getDay()]}）の内訳
-          </span>
-          <span className="ctc-section-total">{fmtDuration(selected.totalSeconds)}</span>
-        </div>
-        {selected.segments.length === 0 ? (
-          <p className="ctc-empty">この日の記録はありません</p>
-        ) : (
-          [...selected.segments].sort((a, b) => b.seconds - a.seconds).map(seg => (
-            <div key={seg.id} className="ctc-row">
-              <span className="ctc-dot" style={{ background: seg.color }} />
-              <span className="ctc-row-name">{seg.name}</span>
-              <div className="ctc-track">
-                <div className="ctc-fill" style={{ width: `${(seg.seconds / selected.totalSeconds) * 100}%`, background: seg.color }} />
-              </div>
-              <span className="ctc-row-time">{fmtDuration(seg.seconds)}</span>
-            </div>
-          ))
+        <button type="button" className="ctc-nav-btn" onClick={() => changeEnd(shiftKey(endKey, days))} disabled={endKey >= todayKey} aria-label="次の期間">›</button>
+        <input
+          type="date"
+          className="ctc-date-input"
+          value={endKey}
+          max={todayKey}
+          onChange={e => changeEnd(e.target.value)}
+          aria-label={isDay ? '日付を選ぶ' : '期間の最終日を選ぶ'}
+        />
+        {endKey !== todayKey && (
+          <button type="button" className="ctc-today-btn" onClick={() => changeEnd(todayKey)}>今日</button>
         )}
       </div>
 
-      {/* 期間全体のカテゴリ別合計 */}
-      {totals.length > 0 && (
-        <div className="ctc-section">
-          <div className="ctc-section-head">
-            <span className="ctc-section-title">期間の合計</span>
-            <span className="ctc-section-total">{fmtDuration(periodTotal)}</span>
-          </div>
-          <div className="ctc-legend">
-            {totals.map(t => (
-              <div key={t.id} className="ctc-legend-item">
-                <span className="ctc-dot" style={{ background: t.color }} />
-                <span className="ctc-legend-name">{t.name}</span>
-                <span className="ctc-legend-time">{fmtDuration(t.seconds)}</span>
-              </div>
+      {overDays.length > 0 && (
+        <div className="ctc-warn">
+          <p className="ctc-warn-title">24時間を超えている日があるで（タップして訂正）</p>
+          <div className="ctc-warn-list">
+            {overDays.map(d => (
+              <button type="button" key={d.key} className="ctc-warn-chip" onClick={() => openDay(d.key)}>
+                {fmtDay(d.key, true)} <strong>{fmtDuration(d.seconds)}</strong>
+              </button>
             ))}
           </div>
         </div>
       )}
 
+      <div className="ctc-rows">
+        {rows.length === 0 ? (
+          <p className="ctc-empty">この期間の記録はありません</p>
+        ) : rows.map(row => {
+          const isEditing = editing?.itemId === row.itemId;
+          const isExpanded = expandedId === row.itemId && !isDay;
+          return (
+            <div key={row.itemId} className="ctc-item">
+              <button
+                type="button"
+                className="ctc-row"
+                onClick={() => (isDay ? startEdit(row) : setExpandedId(isExpanded ? null : row.itemId))}
+                title={isDay ? 'タップして時間を訂正' : 'タップして日別の内訳を表示'}
+              >
+                <span className="ctc-dot" style={{ background: row.color }} />
+                <span className="ctc-row-name">{row.name}</span>
+                <span className="ctc-track">
+                  <span className="ctc-fill" style={{ width: `${(row.seconds / maxSeconds) * 100}%`, background: row.color }} />
+                </span>
+                <span className="ctc-row-time">{fmtDuration(row.seconds)}</span>
+                <span className="ctc-row-action" aria-hidden="true">{isDay ? '✎' : isExpanded ? '▾' : '▸'}</span>
+              </button>
+
+              {isEditing && editing && (
+                <div className="ctc-edit">
+                  <label className="ctc-edit-field">
+                    <input
+                      type="number" inputMode="numeric" min={0} max={24}
+                      value={editing.hours}
+                      onChange={e => setEditing({ ...editing, hours: e.target.value })}
+                    />
+                    時間
+                  </label>
+                  <label className="ctc-edit-field">
+                    <input
+                      type="number" inputMode="numeric" min={0} max={59}
+                      value={editing.minutes}
+                      onChange={e => setEditing({ ...editing, minutes: e.target.value })}
+                    />
+                    分
+                  </label>
+                  <button type="button" className="ctc-edit-save" onClick={saveEdit} disabled={editInvalid}>
+                    {editSeconds === 0 ? '記録を消す' : '保存'}
+                  </button>
+                  <button type="button" className="ctc-edit-cancel" onClick={() => setEditing(null)}>やめる</button>
+                  <p className="ctc-edit-note">
+                    {editInvalid
+                      ? '1日は24時間までやで。'
+                      : `${fmtDay(endKey)}の「${row.name}」を ${fmtDuration(editSeconds)} に直す。この日のこの項目のセッション記録は1件にまとめ直すで。`}
+                  </p>
+                </div>
+              )}
+
+              {isExpanded && (
+                <div className="ctc-days">
+                  {expandedDays.map(d => (
+                    <button type="button" key={d.key} className="ctc-day-row" onClick={() => openDay(d.key)}>
+                      <span className="ctc-day-date">{fmtDay(d.key, true)}</span>
+                      <span className={`ctc-day-time${d.seconds > DAY_SECONDS ? ' ctc-day-time--over' : ''}`}>
+                        {fmtDuration(d.seconds)}
+                      </span>
+                      <span className="ctc-row-action" aria-hidden="true">✎</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
       <div className="ctc-footer">
-        <span className="ctc-avg-label">1日あたりの平均</span>
-        <span className="ctc-avg-value">{fmtDuration(Math.round(periodTotal / range))}</span>
+        <span className="ctc-avg-label">{isDay ? 'この日の合計' : '1日あたりの平均'}</span>
+        <span className="ctc-avg-value">{fmtDuration(isDay ? total : Math.round(total / days))}</span>
       </div>
     </div>
   );

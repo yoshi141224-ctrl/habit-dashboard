@@ -125,9 +125,18 @@ export function useTimeLogs() {
     });
   }
 
+  /**
+   * その日のその項目の合計を、指定した値に直接書き換える（0 以下で記録を消す）。
+   * セッション記録が残っていない過去の日でも直せるようにするための入口。
+   */
+  function setItemTime(date: string, itemId: string, seconds: number) {
+    markEdited(date, itemId);
+    applyDelta(date, itemId, seconds - (timeLogs[date]?.[itemId] ?? 0));
+  }
+
   function getTimeForDate(date: string): Record<string, number> {
     return timeLogs[date] ?? {};
   }
 
-  return { timeLogs, addTime, adjustTime, setTimeForDate, getTimeForDate };
+  return { timeLogs, addTime, adjustTime, setItemTime, setTimeForDate, getTimeForDate };
 }
